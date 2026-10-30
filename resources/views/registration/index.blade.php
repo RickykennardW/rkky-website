@@ -83,62 +83,65 @@
                         <p>Complete the details below to register for Cloud Computing 2025.</p>
                     </div>
 
-                    <form id="registration-form" action="{{ route('registration.index') }}" method="POST" novalidate>
+                    <form id="registration-form" action="{{ route('registration.store') }}" method="POST" novalidate>
                         @csrf
+                        @if ($errors->any())
+                            <div class="submission-notice" role="alert">
+                                Please review the highlighted fields and try again.
+                            </div>
+                        @endif
                         <p class="required-note"><span aria-hidden="true">*</span> All fields are required</p>
 
                         <div class="form-fields grid">
                             <div class="form-field">
                                 <label for="full_name">Full Name <span aria-hidden="true">*</span></label>
-                                <input id="full_name" name="full_name" type="text" autocomplete="name" placeholder="Enter your full name" maxlength="120" required aria-describedby="full_name-error">
-                                <p class="field-error" id="full_name-error" aria-live="polite" hidden></p>
+                                <input id="full_name" name="full_name" type="text" autocomplete="name" placeholder="Enter your full name" minlength="3" maxlength="150" value="{{ is_string(old('full_name')) ? old('full_name') : '' }}" required aria-describedby="full_name-error" aria-invalid="{{ $errors->has('full_name') ? 'true' : 'false' }}">
+                                <p class="field-error" id="full_name-error" aria-live="polite" @if (! $errors->has('full_name')) hidden @endif>@error('full_name'){{ $message }}@enderror</p>
                             </div>
 
                             <div class="form-field">
                                 <label for="email">Student Email <span aria-hidden="true">*</span></label>
-                                <input id="email" name="email" type="email" autocomplete="email" inputmode="email" spellcheck="false" autocapitalize="none" placeholder="you@university.edu" maxlength="254" required aria-describedby="email-error">
-                                <p class="field-error" id="email-error" aria-live="polite" hidden></p>
+                                <input id="email" name="email" type="email" autocomplete="email" inputmode="email" spellcheck="false" autocapitalize="none" placeholder="you@university.edu" maxlength="255" value="{{ is_string(old('email')) ? old('email') : '' }}" required aria-describedby="email-error" aria-invalid="{{ $errors->has('email') ? 'true' : 'false' }}">
+                                <p class="field-error" id="email-error" aria-live="polite" @if (! $errors->has('email')) hidden @endif>@error('email'){{ $message }}@enderror</p>
                             </div>
 
                             <div class="form-field">
                                 <label for="password">Password <span aria-hidden="true">*</span></label>
                                 <div class="password-control relative">
-                                    <input id="password" name="password" type="password" autocomplete="new-password" placeholder="Create a password" minlength="8" required aria-describedby="password-hint password-error">
+                                    <input id="password" name="password" type="password" autocomplete="new-password" placeholder="Create a password" minlength="8" required aria-describedby="password-hint password-error" aria-invalid="{{ $errors->has('password') ? 'true' : 'false' }}">
                                     <button class="password-toggle absolute flex items-center justify-center" type="button" data-password-toggle="password" aria-label="Show password" aria-controls="password" aria-pressed="false" hidden>
                                         <svg class="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg>
                                     </button>
                                 </div>
                                 <p class="field-hint" id="password-hint">Use at least 8 characters.</p>
-                                <p class="field-error" id="password-error" aria-live="polite" hidden></p>
+                                <p class="field-error" id="password-error" aria-live="polite" @if (! $errors->has('password')) hidden @endif>@error('password'){{ $message }}@enderror</p>
                             </div>
 
                             <div class="form-field">
                                 <label for="password_confirmation">Confirm Password <span aria-hidden="true">*</span></label>
                                 <div class="password-control relative">
-                                    <input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" placeholder="Re-enter your password" required aria-describedby="password_confirmation-match password_confirmation-error">
+                                    <input id="password_confirmation" name="password_confirmation" type="password" autocomplete="new-password" placeholder="Re-enter your password" required aria-describedby="password_confirmation-match password_confirmation-error" aria-invalid="{{ $errors->has('password_confirmation') ? 'true' : 'false' }}">
                                     <button class="password-toggle absolute flex items-center justify-center" type="button" data-password-toggle="password_confirmation" aria-label="Show confirm password" aria-controls="password_confirmation" aria-pressed="false" hidden>
                                         <svg class="eye-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/><path class="eye-slash" d="m3 3 18 18"/></svg>
                                     </button>
                                 </div>
                                 <p class="field-match" id="password_confirmation-match" aria-live="polite" hidden>Passwords match.</p>
-                                <p class="field-error" id="password_confirmation-error" aria-live="polite" hidden></p>
+                                <p class="field-error" id="password_confirmation-error" aria-live="polite" @if (! $errors->has('password_confirmation')) hidden @endif>@error('password_confirmation'){{ $message }}@enderror</p>
                             </div>
 
                             <div class="form-field">
                                 <label for="birthdate">Birthdate <span aria-hidden="true">*</span></label>
-                                <input id="birthdate" name="birthdate" type="date" autocomplete="bday" max="{{ now()->format('Y-m-d') }}" required aria-describedby="birthdate-error">
-                                <p class="field-error" id="birthdate-error" aria-live="polite" hidden></p>
+                                <input id="birthdate" name="birthdate" type="date" autocomplete="bday" max="{{ today()->subDay()->format('Y-m-d') }}" value="{{ is_string(old('birthdate')) ? old('birthdate') : '' }}" required aria-describedby="birthdate-error" aria-invalid="{{ $errors->has('birthdate') ? 'true' : 'false' }}">
+                                <p class="field-error" id="birthdate-error" aria-live="polite" @if (! $errors->has('birthdate')) hidden @endif>@error('birthdate'){{ $message }}@enderror</p>
                             </div>
                         </div>
 
-                        <button class="submit-button flex w-full items-center justify-center gap-2.5" type="submit" disabled>
+                        <button class="submit-button flex w-full items-center justify-center gap-2.5" type="submit">
                             <span class="button-spinner" aria-hidden="true" hidden></span>
                             <span data-submit-label>Complete Registration</span>
                             <svg class="button-arrow" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
                         </button>
 
-                        <div class="submission-notice" id="submission-notice" role="status" aria-live="polite" aria-atomic="true" hidden></div>
-                        <noscript><p class="submission-notice">Registration submission will be available once the backend is connected. Enable JavaScript to preview form validation.</p></noscript>
                         <p class="privacy-note">By registering, you acknowledge that your information will be used for course registration purposes.</p>
                     </form>
                 </section>

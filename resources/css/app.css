@@ -428,6 +428,65 @@
         font-weight: 400;
     }
 
+    .receipt-layout {
+        padding-block: 56px;
+    }
+
+    .receipt-card {
+        max-width: 480px;
+    }
+
+    .receipt-icon {
+        width: 48px;
+        height: 48px;
+        margin-bottom: 28px;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        background: var(--surface-elevated);
+        color: var(--text);
+    }
+
+    .receipt-heading {
+        font-size: 28px;
+        font-weight: 500;
+        line-height: 1.35;
+        letter-spacing: -.035em;
+    }
+
+    .receipt-description,
+    .receipt-note {
+        margin-top: 12px;
+        color: var(--text-secondary);
+        font-size: 13px;
+        line-height: 1.8;
+    }
+
+    .receipt-details {
+        gap: 22px;
+        margin-block: 28px;
+        padding-block: 24px;
+        border-block: 1px solid var(--border);
+    }
+
+    .receipt-details dt {
+        margin-bottom: 5px;
+        color: var(--text-secondary);
+        font-size: 12px;
+    }
+
+    .receipt-details dd {
+        font-size: 14px;
+        overflow-wrap: anywhere;
+    }
+
+    .receipt-details .receipt-status {
+        color: var(--text-secondary);
+    }
+
+    .receipt-note {
+        font-size: 12px;
+    }
+
     @media (max-width: 1023px) {
         .registration-layout {
             grid-template-columns: minmax(0, 1fr) minmax(0, 440px);

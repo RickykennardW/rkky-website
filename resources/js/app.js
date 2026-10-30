@@ -4,20 +4,12 @@ if (registrationForm) {
     const fields = [...registrationForm.querySelectorAll('input:not([type="hidden"])')];
     const password = registrationForm.elements.namedItem('password');
     const confirmation = registrationForm.elements.namedItem('password_confirmation');
-    const birthdate = registrationForm.elements.namedItem('birthdate');
     const matchMessage = document.querySelector('#password_confirmation-match');
-    const notice = document.querySelector('#submission-notice');
     const submitButton = registrationForm.querySelector('[type="submit"]');
     const submitLabel = submitButton.querySelector('[data-submit-label]');
     const spinner = submitButton.querySelector('.button-spinner');
     const touchedFields = new Set();
-    const today = new Date();
-
-    birthdate.max = [
-        today.getFullYear(),
-        String(today.getMonth() + 1).padStart(2, '0'),
-        String(today.getDate()).padStart(2, '0'),
-    ].join('-');
+    let submitting = false;
 
     function validationMessage(field) {
         if (!field.value.trim()) {
@@ -30,6 +22,10 @@ if (registrationForm) {
             };
 
             return requiredMessages[field.name];
+        }
+
+        if (field.name === 'full_name' && Array.from(field.value.trim()).length < 3) {
+            return 'Your full name must be at least 3 characters.';
         }
 
         if (field.name === 'email' && field.validity.typeMismatch) {
@@ -45,7 +41,7 @@ if (registrationForm) {
         }
 
         if (field.name === 'birthdate' && field.validity.rangeOverflow) {
-            return 'Your birthdate cannot be in the future.';
+            return 'Your birthdate must be in the past.';
         }
 
         if (!field.validity.valid) {
@@ -83,19 +79,20 @@ if (registrationForm) {
         submitButton.dataset.loading = String(loading);
         registrationForm.setAttribute('aria-busy', String(loading));
         spinner.hidden = !loading;
-        submitLabel.textContent = loading ? 'Checking details…' : 'Complete Registration';
+        submitLabel.textContent = loading ? 'Submitting…' : 'Complete Registration';
     }
 
     fields.forEach((field) => {
+        if (field.getAttribute('aria-invalid') === 'true') {
+            touchedFields.add(field);
+        }
+
         field.addEventListener('blur', () => {
             touchedFields.add(field);
             validateField(field);
         });
 
         field.addEventListener('input', () => {
-            notice.hidden = true;
-            notice.textContent = '';
-
             if (touchedFields.has(field)) {
                 validateField(field);
             }
@@ -121,35 +118,37 @@ if (registrationForm) {
         toggle.hidden = false;
     });
 
-    // Phase 1 never sends a request. Keep submission disabled until this guard is attached.
     registrationForm.addEventListener('submit', (event) => {
-        event.preventDefault();
-
-        if (submitButton.disabled) {
+        if (submitting) {
+            event.preventDefault();
             return;
         }
 
-        notice.hidden = true;
-        notice.textContent = '';
         fields.forEach((field) => touchedFields.add(field));
         const validFields = fields.map(validateField);
         updatePasswordMatch();
 
         if (validFields.includes(false)) {
+            event.preventDefault();
             fields[validFields.indexOf(false)].focus();
 
             return;
         }
 
+        submitting = true;
         setLoading(true);
-
-        // Local feedback only; the future POST route will replace this preview state.
-        window.setTimeout(() => {
-            setLoading(false);
-            notice.textContent = 'Registration submission will be available once the backend is connected.';
-            notice.hidden = false;
-        }, 450);
     });
 
-    submitButton.disabled = false;
+    window.addEventListener('pageshow', (event) => {
+        submitting = false;
+        setLoading(false);
+
+        if (event.persisted) {
+            password.value = '';
+            confirmation.value = '';
+            updatePasswordMatch();
+        }
+    });
+
+    fields.find((field) => field.getAttribute('aria-invalid') === 'true')?.focus();
 }
