@@ -124,26 +124,20 @@ jobs:
       # ------------------------------------------
       # STEP 2 - TEST SSH AUTHENTICATION
       # ------------------------------------------
-      - name: Test SSH Authentication
-        env:
-          SSH_HOST: ${{ secrets.SSH_HOST }}
-          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
-        run: |
-          set -e
 
-          echo "Testing SSH authentication..."
+      - name: Test SSH Authentication
+        run: |
+          echo "Testing direct SSH connection..."
 
           ssh -vv \
             -i ~/.ssh/id_ed25519 \
             -o IdentitiesOnly=yes \
             -o BatchMode=yes \
             -o PreferredAuthentications=publickey \
-            -o PasswordAuthentication=no \
             -o StrictHostKeyChecking=yes \
-            -o ConnectTimeout=15 \
-            "$SSH_USERNAME@$SSH_HOST" "whoami"
-
-          echo "SSH authentication successful."
+            -o HostKeyAlias=rkky.my.id \
+            -p 22 \
+            rkkyweb@103.103.138.174 "whoami"
 
       # ------------------------------------------
       # STEP 3 - DEPLOY TO CLOUDPANEL
