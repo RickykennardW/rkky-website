@@ -1,0 +1,153 @@
+
+name: RKKY Laravel CI/CD Deployment
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  # ==============================
+  # CI - AUTOMATED TESTING
+  # ==============================
+  laravel-tests:
+    name: Run Tests & Build Assets
+    runs-on: ubuntu-latest
+
+    env:
+      APP_ENV: testing
+      APP_DEBUG: true
+      DB_CONNECTION: sqlite
+      MAIL_MAILER: array
+      QUEUE_CONNECTION: sync
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: mbstring, xml, ctype, iconv, pdo_sqlite, sqlite3, bcmath, zip
+          tools: composer:v2
+          coverage: none
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: Cache Composer Dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer Dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      - name: Prepare Laravel Environment
+        run: |
+          cp .env.example .env
+          mkdir -p database
+          touch database/database.sqlite
+          echo "DB_DATABASE=$GITHUB_WORKSPACE/database/database.sqlite" >> "$GITHUB_ENV"
+          php artisan key:generate
+
+      - name: Run Database Migrations
+        run: php artisan migrate --force
+
+      - name: Run Laravel Tests
+        run: php artisan test
+
+      - name: Install NPM Dependencies
+        run: npm ci
+
+      - name: Build Frontend Assets
+        run: npm run build
+
+  # ==============================
+  # CD - DEPLOY TO CLOUDPANEL
+  # ==============================
+  deploy:
+    name: Deploy to rkky.my.id
+    needs: laravel-tests
+
+    # Safety: manual deployment first.
+    # Automatic deployment will be enabled
+    # after SSH Secrets and testing are ready.
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+
+    runs-on: ubuntu-latest
+
+    concurrency:
+      group: rkky-production-deploy
+      cancel-in-progress: false
+
+    steps:
+      - name: Configure SSH
+        env:
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+
+          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Deploy via SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+        run: |
+          ssh -i ~/.ssh/id_ed25519 \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            "$SSH_USERNAME@$SSH_HOST" 'bash -se' <<'REMOTE'
+          set -e
+
+          cd ~/htdocs/rkky.my.id
+
+          echo "Checking production environment..."
+          test -f .env
+          test -f database/database.sqlite
+          test -z "$(git status --porcelain)"
+
+          echo "Pulling latest code..."
+          git pull --ff-only origin main
+
+          echo "Installing Composer dependencies..."
+          composer install \
+            --no-dev \
+            --optimize-autoloader \
+            --no-interaction
+
+          echo "Installing NPM dependencies..."
+          npm ci
+
+          echo "Building frontend..."
+          npm run build
+
+          echo "Running database migrations..."
+          php artisan migrate --force
+
+          echo "Refreshing Laravel cache..."
+          php artisan optimize:clear
+          php artisan config:cache
+          php artisan view:cache
+
+          echo "DEPLOYMENT COMPLETED"
+          REMOTE
