@@ -29,7 +29,6 @@ jobs:
       MAIL_MAILER: array
       QUEUE_CONNECTION: sync
 
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -72,7 +71,6 @@ jobs:
       - name: Run Laravel Tests
         run: php artisan test
 
-
   # ==========================================
   # CD - CONTINUOUS DEPLOYMENT
   # ==========================================
@@ -80,7 +78,7 @@ jobs:
     name: Deploy to rkky.my.id
     needs: laravel-tests
 
-    # Manual deployment only until SSH Secrets are configured
+    # Manual deployment until SSH is verified.
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
 
     runs-on: ubuntu-latest
@@ -90,20 +88,66 @@ jobs:
       cancel-in-progress: false
 
     steps:
+      # ------------------------------------------
+      # STEP 1 - CONFIGURE SSH
+      # ------------------------------------------
       - name: Configure SSH
         env:
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
         run: |
+          set -e
+
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
 
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_ed25519
+          # Write private key and normalize line endings
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
 
-          printf '%s\n' "$SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          # Write verified server host key
+          printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
+          echo "Checking SSH private key..."
+          ssh-keygen -y -f ~/.ssh/id_ed25519 > ~/.ssh/deploy_key.pub
+
+          echo "GitHub Actions SSH key fingerprint:"
+          ssh-keygen -lf ~/.ssh/deploy_key.pub
+
+          echo "Checking known hosts..."
+          test -s ~/.ssh/known_hosts
+          ssh-keygen -lf ~/.ssh/known_hosts
+
+          echo "SSH configuration completed."
+
+      # ------------------------------------------
+      # STEP 2 - TEST SSH AUTHENTICATION
+      # ------------------------------------------
+      - name: Test SSH Authentication
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+        run: |
+          set -e
+
+          echo "Testing SSH authentication..."
+
+          ssh -vv \
+            -i ~/.ssh/id_ed25519 \
+            -o IdentitiesOnly=yes \
+            -o BatchMode=yes \
+            -o PreferredAuthentications=publickey \
+            -o PasswordAuthentication=no \
+            -o StrictHostKeyChecking=yes \
+            -o ConnectTimeout=15 \
+            "$SSH_USERNAME@$SSH_HOST" "whoami"
+
+          echo "SSH authentication successful."
+
+      # ------------------------------------------
+      # STEP 3 - DEPLOY TO CLOUDPANEL
+      # ------------------------------------------
       - name: Deploy via SSH
         env:
           SSH_HOST: ${{ secrets.SSH_HOST }}
@@ -112,6 +156,8 @@ jobs:
           ssh -i ~/.ssh/id_ed25519 \
             -o IdentitiesOnly=yes \
             -o BatchMode=yes \
+            -o PreferredAuthentications=publickey \
+            -o PasswordAuthentication=no \
             -o StrictHostKeyChecking=yes \
             "$SSH_USERNAME@$SSH_HOST" 'bash -se' <<'REMOTE'
           set -e
@@ -119,32 +165,39 @@ jobs:
           cd ~/htdocs/rkky.my.id
 
           echo "Checking production environment..."
+
           test -f .env
           test -f database/database.sqlite
           test -z "$(git status --porcelain)"
 
           echo "Pulling latest code..."
+
           git pull --ff-only origin main
 
           echo "Installing Composer dependencies..."
+
           composer install \
             --no-dev \
             --optimize-autoloader \
             --no-interaction
 
           echo "Installing NPM dependencies..."
+
           npm ci
 
-          echo "Building frontend..."
+          echo "Building frontend assets..."
+
           npm run build
 
           echo "Running database migrations..."
+
           php artisan migrate --force
 
           echo "Refreshing Laravel cache..."
+
           php artisan optimize:clear
           php artisan config:cache
           php artisan view:cache
 
-          echo "DEPLOYMENT COMPLETED"
+          echo "DEPLOYMENT COMPLETED SUCCESSFULLY"
           REMOTE
