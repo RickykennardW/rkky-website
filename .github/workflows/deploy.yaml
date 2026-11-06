@@ -23,6 +23,7 @@ jobs:
       APP_ENV: testing
       APP_DEBUG: true
       DB_CONNECTION: sqlite
+      DB_DATABASE: ':memory:'
       MAIL_MAILER: array
       QUEUE_CONNECTION: sync
 
