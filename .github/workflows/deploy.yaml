@@ -24,6 +24,8 @@ jobs:
       APP_DEBUG: true
       DB_CONNECTION: sqlite
       DB_DATABASE: ':memory:'
+      CACHE_STORE: file
+      SESSION_DRIVER: array
       MAIL_MAILER: array
       QUEUE_CONNECTION: sync
 
@@ -59,7 +61,6 @@ jobs:
         run: |
           cp .env.example .env
           php artisan key:generate
-          php artisan optimize:clear
 
       - name: Run Laravel Tests
         run: php artisan test
@@ -77,8 +78,7 @@ jobs:
     name: Deploy to rkky.my.id
     needs: laravel-tests
 
-    # Deployment masih manual demi keamanan.
-    # Aktifkan otomatis setelah SSH Secrets siap.
+    # Manual deployment only until SSH Secrets are configured
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
 
     runs-on: ubuntu-latest
