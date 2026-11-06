@@ -12,9 +12,9 @@ permissions:
   contents: read
 
 jobs:
-  # ==============================
-  # CI - AUTOMATED TESTING
-  # ==============================
+  # ==========================================
+  # CI - CONTINUOUS INTEGRATION
+  # ==========================================
   laravel-tests:
     name: Run Tests & Build Assets
     runs-on: ubuntu-latest
@@ -58,13 +58,8 @@ jobs:
       - name: Prepare Laravel Environment
         run: |
           cp .env.example .env
-          mkdir -p database
-          touch database/database.sqlite
-          echo "DB_DATABASE=$GITHUB_WORKSPACE/database/database.sqlite" >> "$GITHUB_ENV"
           php artisan key:generate
-
-      - name: Run Database Migrations
-        run: php artisan migrate --force
+          php artisan optimize:clear
 
       - name: Run Laravel Tests
         run: php artisan test
@@ -75,16 +70,15 @@ jobs:
       - name: Build Frontend Assets
         run: npm run build
 
-  # ==============================
-  # CD - DEPLOY TO CLOUDPANEL
-  # ==============================
+  # ==========================================
+  # CD - CONTINUOUS DEPLOYMENT
+  # ==========================================
   deploy:
     name: Deploy to rkky.my.id
     needs: laravel-tests
 
-    # Safety: manual deployment first.
-    # Automatic deployment will be enabled
-    # after SSH Secrets and testing are ready.
+    # Deployment masih manual demi keamanan.
+    # Aktifkan otomatis setelah SSH Secrets siap.
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
 
     runs-on: ubuntu-latest
