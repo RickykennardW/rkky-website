@@ -62,14 +62,15 @@ jobs:
           cp .env.example .env
           php artisan key:generate
 
-      - name: Run Laravel Tests
-        run: php artisan test
-
       - name: Install NPM Dependencies
         run: npm ci
 
       - name: Build Frontend Assets
         run: npm run build
+
+      - name: Run Laravel Tests
+        run: php artisan test
+
 
   # ==========================================
   # CD - CONTINUOUS DEPLOYMENT
