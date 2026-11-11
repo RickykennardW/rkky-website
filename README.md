@@ -1,58 +1,80 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# CampusSpace
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+CampusSpace is a campus room and equipment reservation app. Students can check availability, submit requests, follow their status, and attach a room plan. Campus staff can manage the catalog, approve requests, and record equipment pickup, returns, and losses.
 
-## About Laravel
+## Run locally
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Use Node.js 22.12 or later and npm. From the project root, run:
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
-
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
-
-## Learning Laravel
-
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
-
-```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+```sh
+npm ci
+npm run dev
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Open [localhost:3000](http://localhost:3000). The dashboard, directories, and planner show a labeled fictional catalog when Supabase is unconfigured. Accounts, live availability, bookings, and administration require a Supabase project.
 
-## Contributing
+## Connect Supabase
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+1. Open your CampusSpace project in Supabase. If the schema has not been applied, run [the CampusSpace migration](supabase/migrations/20261111000100_campusspace.sql) once in its SQL Editor.
+2. To add fictional rooms and equipment for testing, run [the optional seed](supabase/seed.sql) in the SQL Editor. Create your test accounts through the normal sign-up flow.
+3. Edit `.env.local` at the project root. If the file is missing, copy [.env.example](.env.example) first. Copy the Project URL from the Supabase **Connect** dialog and use the publishable key from the same project. Restart Next.js after changing the file.
 
-## Code of Conduct
+| Variable | Value |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key from the Supabase project |
+| `NEXT_PUBLIC_SITE_URL` | App origin for Auth redirects. Defaults to `http://localhost:3000` locally. Set it to your production origin when deploying. |
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+Use the publishable key for the app. Keep any Supabase secret or service-role key out of the environment variables above, browser code, and Git.
 
-## Security Vulnerabilities
+4. In Supabase Authentication settings, enable the Email provider and set the **Site URL** to your app origin. Add `http://localhost:3000/auth/confirm` and your production `/auth/confirm` URL to the redirect allowlist, adjusting the port for your local server.
+5. With email confirmation enabled, update the link in the **Confirm signup** email template to the following URL. Configure email delivery for your users in Supabase.
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```text
+{{ .RedirectTo }}?token_hash={{ .TokenHash }}
+```
 
-## License
+The registration form supplies the full allowlisted `/auth/confirm` URL. See [Supabase’s Next.js Auth setup](https://supabase.com/docs/guides/auth/server-side/creating-a-client?environment=route-handler&framework=nextjs).
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+### Create the first admin
+
+Register the intended staff member through the application and verify the account. In the Supabase dashboard, open **Authentication → Users** and copy that account’s UUID. In the project SQL Editor, replace the example UUID below and verify the returned account and role.
+
+```sql
+update public.profiles
+set role = 'admin'
+where id = '00000000-0000-0000-0000-000000000000'
+returning id, email, role;
+```
+
+The account can then open **Administration** from the sidebar. Sign-up creates a student profile. Profile roles can be assigned through the database by an authorized project operator.
+
+## Booking and inventory rules
+
+- The UI displays campus time in WIB (UTC+7). Booking timestamps are stored as `timestamptz`.
+- Pending requests enter the review queue. Approved reservations hold the room and the required equipment for the booking period.
+- Approval checks room overlap and peak concurrent equipment demand inside the same transaction. The database serializes allocation-changing actions.
+- Equipment pickup rechecks physical stock. Overdue units remain unavailable until return. A return records any missing or damaged units and flags an allocation shortfall for staff review.
+- The SVG planner uses room geometry, fixed furniture, blocked zones, and clearance rules. Its estimates can be adjusted and attached to a booking. The result is a planning aid. Staff should verify the actual arrangement and required clearances before use.
+
+## Verify
+
+```sh
+npm run lint
+npm run typecheck
+npm test
+npm run build
+```
+
+The test suite runs the migration and seed in an isolated PostgreSQL instance through PGlite, mocks Supabase Auth in server-action tests, and tests the planner independently.
+
+To verify the hosted integration after setup, register and confirm a student account, sign in, and open **Rooms** to check that the catalog loads from Supabase. Submit a booking, sign in with the assigned admin account to review it, then verify the updated status from the student account.
+
+## Deploy to Vercel
+
+1. Import this repository as a Next.js project with a supported Node.js version.
+2. Configure the three environment variables before building. Set `NEXT_PUBLIC_SITE_URL` to the deployed origin.
+3. Apply the migration to the production Supabase project and configure the Auth URLs and email template as above.
+4. Deploy. Register a student account and verify email confirmation, then verify staff access and approve a test reservation.
+
+For a self-hosted Next.js server, run `npm run build` followed by `npm start` with the same environment variables.
