@@ -109,7 +109,9 @@ if [[ "$mode" == demo ]]; then
 else
     rm -f -- storage/app/campusspace-demo
 fi
-php artisan config:clear --no-interaction
+# Cached providers from the previous checkout can prevent Artisan from booting.
+rm -f -- bootstrap/cache/config.php bootstrap/cache/services.php bootstrap/cache/packages.php \
+    bootstrap/cache/events.php bootstrap/cache/routes-v7.php
 if [[ ! -L public/storage ]]; then php artisan storage:link --no-interaction; fi
 php artisan optimize --no-interaction
 php artisan campusspace:check-production --mode="$mode" --schema --no-interaction
