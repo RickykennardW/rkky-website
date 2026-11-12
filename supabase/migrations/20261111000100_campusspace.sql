@@ -88,7 +88,7 @@ create table public.equipment_loans (
   primary key (booking_id, equipment_id),
   foreign key (booking_id, equipment_id) references public.booking_equipment(booking_id, equipment_id) on delete restrict,
   check ((returned_at is null and returned_by is null and missing = 0 and damaged = 0)
-      or (returned_at >= picked_up_at and returned_by is not null))
+      or (returned_at is not null and returned_at >= picked_up_at and returned_by is not null))
 );
 
 create index bookings_user_time on public.bookings(user_id, starts_at);
@@ -101,7 +101,7 @@ create function campus_private.sync_profile() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
   insert into public.profiles(id, full_name, email)
-  values (new.id, coalesce(nullif(left(btrim(new.raw_user_meta_data->>'full_name'),100),''), nullif(split_part(new.email,'@',1),''), 'Campus member'), coalesce(new.email,''))
+  values (new.id, coalesce(nullif(left(btrim(new.raw_user_meta_data->>'full_name'),100),''), nullif(left(split_part(new.email,'@',1),100),''), 'Campus member'), coalesce(new.email,''))
   on conflict (id) do update set email = excluded.email;
   return new;
 end;
@@ -110,7 +110,7 @@ revoke all on function campus_private.sync_profile() from public, anon, authenti
 create trigger campus_profile_after_auth after insert or update of email on auth.users
 for each row execute function campus_private.sync_profile();
 insert into public.profiles(id, full_name, email)
-select id, coalesce(nullif(left(btrim(raw_user_meta_data->>'full_name'),100),''), nullif(split_part(email,'@',1),''), 'Campus member'), coalesce(email,'')
+select id, coalesce(nullif(left(btrim(raw_user_meta_data->>'full_name'),100),''), nullif(left(split_part(email,'@',1),100),''), 'Campus member'), coalesce(email,'')
 from auth.users on conflict do nothing;
 
 create function campus_private.is_admin() returns boolean

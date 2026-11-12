@@ -1,0 +1,125 @@
+name: Deploy CampusSpace
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Test Laravel and build Vite assets
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: campusspace_test
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 127.0.0.1:55432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d campusspace_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_pgsql, pgsql, mbstring, xml, curl, zip
+          tools: composer:v2
+          coverage: none
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies and prepare test environment
+        run: |
+          cp .env.example .env
+          composer validate --strict
+          composer install --no-interaction --prefer-dist --no-progress
+          php artisan key:generate --no-interaction
+          npm ci
+      - name: Validate routes, views, and booking workflows
+        run: |
+          php artisan route:list --except-vendor
+          php artisan view:cache
+          php artisan test
+      - name: Build production assets
+        run: npm run build
+      - uses: actions/upload-artifact@v6
+        with:
+          name: campusspace-vite-${{ github.sha }}
+          path: public/build/
+          if-no-files-found: error
+          retention-days: 7
+
+  deploy:
+    name: Deploy to rkky.my.id
+    runs-on: ubuntu-latest
+    needs: validate
+    if: >-
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && vars.CAMPUSSPACE_AUTO_DEPLOY == 'true'))
+    concurrency:
+      group: rkky-production-deploy
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v7
+        with:
+          name: campusspace-vite-${{ github.sha }}
+          path: public/build
+      - name: Deploy the validated commit over verified SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_PORT: ${{ secrets.SSH_PORT }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          for name in SSH_HOST SSH_USERNAME SSH_PRIVATE_KEY SSH_KNOWN_HOSTS; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Set the GitHub Actions secret $name."
+              exit 1
+            fi
+          done
+          [[ "$SSH_HOST" =~ ^[[:alnum:].-]+$ && "$SSH_USERNAME" == 'rkkyweb' ]]
+          port="${SSH_PORT:-22}"
+          [[ "$port" =~ ^[0-9]{1,5}$ && "$port" -ge 1 && "$port" -le 65535 ]]
+
+          umask 077
+          ssh_dir=$(mktemp -d "$RUNNER_TEMP/campusspace-ssh.XXXXXXXX")
+          trap 'rm -f -- "$ssh_dir/key" "$ssh_dir/known_hosts" "$ssh_dir/assets.tar.gz"; rmdir -- "$ssh_dir"' EXIT
+          printf '%s\n' "$SSH_PRIVATE_KEY" | tr -d '\r' > "$ssh_dir/key"
+          printf '%s\n' "$SSH_KNOWN_HOSTS" | tr -d '\r' > "$ssh_dir/known_hosts"
+          unset SSH_PRIVATE_KEY SSH_KNOWN_HOSTS
+          ssh-keygen -y -P '' -f "$ssh_dir/key" >/dev/null
+
+          ssh_options=(-i "$ssh_dir/key" -o "Port=$port" -o IdentitiesOnly=yes -o BatchMode=yes
+            -o PasswordAuthentication=no -o StrictHostKeyChecking=yes -o "UserKnownHostsFile=$ssh_dir/known_hosts"
+            -o ConnectTimeout=12 -o ServerAliveInterval=15 -o ServerAliveCountMax=3)
+          known_host="$SSH_HOST"
+          if [[ "$port" != '22' ]]; then known_host="[$SSH_HOST]:$port"; fi
+          if ! ssh-keygen -F "$known_host" -f "$ssh_dir/known_hosts" >/dev/null; then
+            if ! ssh-keygen -F rkky.my.id -f "$ssh_dir/known_hosts" >/dev/null; then
+              echo "::error::SSH_KNOWN_HOSTS needs a verified entry for the deployment host or rkky.my.id."
+              exit 1
+            fi
+            ssh_options+=(-o HostKeyAlias=rkky.my.id)
+          fi
+
+          target="$SSH_USERNAME@$SSH_HOST"
+          tar -C public/build -czf "$ssh_dir/assets.tar.gz" .
+          stage=$(ssh "${ssh_options[@]}" "$target" 'mktemp -d /tmp/campusspace-deploy.XXXXXXXX')
+          [[ "$stage" =~ ^/tmp/campusspace-deploy\.[A-Za-z0-9]{8}$ ]]
+          scp "${ssh_options[@]}" .github/scripts/deploy-campusspace.sh "$ssh_dir/assets.tar.gz" "$target:$stage/"
+          ssh "${ssh_options[@]}" "$target" bash "$stage/deploy-campusspace.sh" "$GITHUB_SHA" "$stage"
