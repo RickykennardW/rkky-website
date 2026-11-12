@@ -39,15 +39,21 @@ esac
 
 exec 9>"$(git rev-parse --git-path campusspace-deploy.lock)"
 flock -n 9 || { printf 'A CampusSpace deployment is already running.\n' >&2; exit 1; }
-[[ -r .env && -z "$(git ls-files -- .env)" ]]
-[[ -z "$(git status --porcelain --untracked-files=no)" ]]
+[[ -r .env && -z "$(git ls-files -- .env)" ]] || {
+    printf 'Configure a readable, private .env on the server before deploying.\n' >&2
+    exit 1
+}
+[[ -z "$(git status --porcelain --untracked-files=no)" ]] || {
+    printf 'The server checkout has tracked local changes. Review them before deploying.\n' >&2
+    exit 1
+}
 php -r 'exit(PHP_VERSION_ID >= 80400 && extension_loaded("pdo_pgsql") ? 0 : 1);' || {
     printf 'The deployment account needs PHP 8.4 or later with pdo_pgsql.\n' >&2
     exit 1
 }
 
 previous=$(git rev-parse HEAD)
-git fetch --no-tags origin refs/heads/main
+GIT_TERMINAL_PROMPT=0 git fetch --no-tags origin refs/heads/main
 [[ "$(git rev-parse FETCH_HEAD)" == "$revision" ]] || {
     printf 'The validated commit is no longer the tip of main. Deploy the latest validated run.\n' >&2
     exit 1
@@ -94,13 +100,41 @@ printf '%s\n' "$revision" > "$release"
 chmod 644 "$release"
 mv -f -- "$release" storage/app/campusspace-release
 
-health=$(curl --fail --silent --show-error --max-time 20 --retry 2 https://rkky.my.id/health/campusspace)
+verify_https() {
+    local path="$1" destination="$2" status result
+    if status=$(curl --silent --show-error --max-time 20 --retry 1 --retry-max-time 25 \
+        --proto '=https' --output "$destination" --write-out '%{http_code}' "https://rkky.my.id$path"); then
+        case "$status" in
+            200) return 0 ;;
+            403) printf 'HTTPS returned 403 for %s. Check the CloudPanel public document root and permissions.\n' "$path" >&2 ;;
+            404) printf 'HTTPS returned 404 for %s. Check the CloudPanel document root and Laravel route fallback.\n' "$path" >&2 ;;
+            500|503) printf 'HTTPS returned %s for %s. Check the site PHP-FPM and Laravel logs.\n' "$status" "$path" >&2 ;;
+            *) printf 'HTTPS returned %s for %s. Expected HTTP 200 from CampusSpace.\n' "$status" "$path" >&2 ;;
+        esac
+        return 1
+    else
+        result=$?
+        if [[ "$result" -eq 60 ]]; then
+            printf 'The public HTTPS certificate could not be verified. Check the certificate and chain in CloudPanel.\n' >&2
+        fi
+        return "$result"
+    fi
+}
+
+printf 'CampusSpace %s is installed in the server checkout. Verifying the public domain.\n' "$revision"
+verify_https /health/campusspace "$stage/health.json"
 php -r '
 $health = json_decode(stream_get_contents(STDIN), true);
 exit(($health["app"] ?? null) === "CampusSpace" && ($health["ready"] ?? false) === true
     && ($health["release"] ?? null) === $argv[1] ? 0 : 1);
-' "$revision" <<< "$health"
-curl --fail --silent --show-error --max-time 20 --retry 2 --location https://rkky.my.id/ > "$stage/home.html"
-grep -Fq 'data-app="campusspace"' "$stage/home.html"
+' "$revision" < "$stage/health.json" || {
+    printf 'HTTPS health did not report the expected ready CampusSpace release.\n' >&2
+    exit 1
+}
+verify_https / "$stage/home.html"
+grep -Fq 'data-app="campusspace"' "$stage/home.html" || {
+    printf 'HTTPS homepage is missing the CampusSpace layout marker.\n' >&2
+    exit 1
+}
 
 printf 'CampusSpace %s is serving verified HTTPS content at rkky.my.id.\n' "$revision"

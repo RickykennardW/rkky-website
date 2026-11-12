@@ -21,7 +21,23 @@ QUEUE_CONNECTION=sync
 
 Set `DB_URL` to the existing Supabase PostgreSQL connection string or configure `DB_HOST`, `DB_PORT`, `DB_DATABASE`, `DB_USERNAME`, and `DB_PASSWORD` as described in the README. Use the Session pooler on port 5432 when IPv4 is required. Set `SUPABASE_URL` and `SUPABASE_PUBLISHABLE_KEY` if existing password users will link their legacy accounts. Keep any retained `SUPABASE_SECRET_KEY` private. Use a signed Laravel email verification flow only after configuring working mail transport.
 
-For the site administrator, set the CloudPanel Nginx **document root** to the absolute equivalent of `~/htdocs/rkky.my.id/public`. Confirm PHP 8.4 FPM serves `public/index.php` and the site sends requests for missing paths to `/index.php?$query_string` through Nginx. Static assets under `public/build/assets` must be readable. Ensure the site's PHP-FPM user can write to `storage` and `bootstrap/cache`. [Laravel Nginx and PHP-FPM requirements](https://laravel.com/framework/docs/13.x/deployment)
+If the server still has its pre-CampusSpace environment, run the provisioning helper from a configured local checkout. Pass the path to the existing SSH identity for `rkkyweb`. The local SSH client must already trust the verified host key for `rkky.my.id`.
+
+```powershell
+php .github/scripts/provision-production-env.php <path-to-existing-SSH-identity>
+```
+
+The helper reads the active Laravel connection from the local checkout and verifies its Supabase migration ledger through a read-only connection. It builds `DB_URL` from the existing host, port, database, username, password, and TLS mode. It sends that URL, the Supabase API URL, and the publishable key through verified SSH standard input. It atomically updates the existing private server `.env` and retains the server `APP_KEY` and active PostgreSQL credentials. An existing `DB_URL` or complete Supabase connection settings under another driver require review before changing the driver. Git and GitHub Actions carry the application code and assets. The unused Supabase Secret Key stays in its private environment.
+
+When a key has been exposed, rotate the affected environment with `php artisan key:generate`. For production, check encrypted application data before rotating and schedule for existing sessions to expire. Omit the exposed key from `APP_PREVIOUS_KEYS`. [Laravel encryption and key rotation](https://laravel.com/framework/docs/13.x/encryption#gracefully-rotating-encryption-keys)
+
+## CloudPanel administrator setup
+
+1. Enable PostgreSQL support for **PHP 8.4 CLI and PHP-FPM**. Install `php8.4-pgsql` on the host if the module is absent, and reload PHP-FPM. Confirm `php -m` lists `pdo_pgsql` in the site's SSH shell. Select PHP 8.4 in the site's **PHP Settings**. [CloudPanel site settings](https://www.cloudpanel.io/docs/v2/frontend-area/settings/)
+2. In **Settings → Domain Settings**, set **Root Directory** to the site's `~/htdocs/rkky.my.id/public` directory. The site vhost should serve `public/index.php` through PHP-FPM and route missing paths to `/index.php?$query_string`. Ensure the site user can write `storage` and `bootstrap/cache` and serve `public/build/assets`. [Laravel Nginx and PHP-FPM requirements](https://laravel.com/framework/docs/13.x/deployment)
+3. In **SSL/TLS**, issue a trusted certificate for `rkky.my.id`. For Let's Encrypt, choose **Actions → New Let's Encrypt Certificate**, add the domain, and select **Create and Install**. [CloudPanel SSL/TLS settings](https://www.cloudpanel.io/docs/v2/frontend-area/tls/)
+
+When CloudPanel terminates TLS directly, pass HTTPS through the site's FastCGI configuration. If a separate reverse proxy terminates TLS, configure Laravel to trust only that proxy's address or network and the headers it sets. [Laravel trusted proxies](https://laravel.com/framework/docs/requests#configuring-trusted-proxies)
 
 ## GitHub Actions setup
 
@@ -48,7 +64,7 @@ git commit -m "Migrate CampusSpace to Laravel"
 git push origin main
 ```
 
-Open **GitHub → Actions → Deploy CampusSpace → Run workflow**, select **main**, and click **Run workflow**. Pushes and pull requests to `main` run validation. After a successful manual deployment, set the repository Actions variable `CAMPUSSPACE_AUTO_DEPLOY=true` if you want validated pushes to `main` to deploy automatically.
+Open **GitHub → Actions → Deploy CampusSpace → Run workflow**, select **main**, and click **Run workflow**. The validation job's summary records whether the run requested a deploy. Pushes and pull requests to `main` run validation. After a successful manual deployment, set the repository Actions variable `CAMPUSSPACE_AUTO_DEPLOY=true` if you want validated pushes to `main` to deploy automatically.
 
 The deployment locks the existing checkout and verifies the intended commit is the tip of `main`. A temporary worktree outside the site installs production Composer dependencies, checks the database connection, and applies the Laravel migrations. The workflow updates the live checkout only after the staged schema and compiled assets pass validation. It then publishes the assets, runs Laravel optimization, and checks the HTTPS health response and homepage content. Previous commits and hashed assets are available if a release needs rollback. To recover from a bad application commit, revert it on `main` and run the deployment again. The schema migrations retain existing data and are handled separately from code rollback.
 

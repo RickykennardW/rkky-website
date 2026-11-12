@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Encryption\Encrypter;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Throwable;
@@ -16,12 +17,34 @@ class ProductionReadiness
             $issues[] = 'Set APP_ENV=production, APP_DEBUG=false and APP_URL=https://rkky.my.id.';
         }
 
-        if (! config('app.key')) {
-            $issues[] = 'Set a Laravel APP_KEY.';
+        $key = (string) config('app.key');
+        if (str_starts_with($key, 'base64:')) {
+            $key = base64_decode(substr($key, 7), true);
+        }
+        if (! is_string($key) || ! Encrypter::supported($key, config('app.cipher'))) {
+            $issues[] = 'Set a valid production APP_KEY for the Laravel cipher.';
         }
 
         if (! config('session.secure')) {
             $issues[] = 'Set SESSION_SECURE_COOKIE=true.';
+        }
+
+        $writable = [
+            'storage/app' => storage_path('app'),
+            'storage/framework/views' => storage_path('framework/views'),
+            'storage/logs' => storage_path('logs'),
+            'bootstrap/cache' => app()->bootstrapPath('cache'),
+        ];
+        if (config('session.driver') === 'file') {
+            $writable['file session directory'] = config('session.files');
+        }
+        if (config('cache.default') === 'file') {
+            $writable['file cache directory'] = config('cache.stores.file.path');
+        }
+        foreach ($writable as $label => $directory) {
+            if (! is_string($directory) || ! is_dir($directory) || ! is_writable($directory)) {
+                $issues[] = "Make {$label} writable by the site user.";
+            }
         }
 
         if (config('database.default') !== 'pgsql') {
@@ -36,13 +59,46 @@ class ProductionReadiness
                 $issues[] = 'Require TLS for the PostgreSQL connection with DB_SSLMODE=require or stronger.';
             } else {
                 $connection->selectOne('select 1');
+                $issues = array_merge($issues, $this->databaseDriverIssues());
             }
         } catch (Throwable) {
             $issues[] = 'PostgreSQL connection failed. Check the Supabase Session pooler or direct credentials and PHP pdo_pgsql.';
         }
 
-        if ($issues === [] && $withSchema && ! $this->applicationReady()) {
-            $issues[] = 'The CampusSpace schema or Vite production assets are missing.';
+        if ($issues === [] && $withSchema) {
+            if (! $this->applicationReady()) {
+                $issues[] = 'The CampusSpace schema or Vite production assets are missing.';
+            }
+            try {
+                $migrator = app('migrator');
+                if (! $migrator->repositoryExists() || array_diff(
+                    array_keys($migrator->getMigrationFiles(database_path('migrations'))),
+                    $migrator->getRepository()->getRan(),
+                ) !== []) {
+                    $issues[] = 'CampusSpace migrations are pending. Check php artisan migrate:status.';
+                }
+            } catch (Throwable) {
+                $issues[] = 'The migration ledger could not be verified.';
+            }
+        }
+
+        return $issues;
+    }
+
+    private function databaseDriverIssues(): array
+    {
+        $issues = [];
+        if (config('session.driver') === 'database'
+            && ! Schema::connection(config('session.connection'))->hasTable(config('session.table'))) {
+            $issues[] = 'The database session table is missing. Use SESSION_DRIVER=file or provide the configured table.';
+        }
+        if (config('cache.default') === 'database') {
+            $schema = Schema::connection(config('cache.stores.database.connection'));
+            $lockSchema = Schema::connection(config('cache.stores.database.lock_connection') ?: config('cache.stores.database.connection'));
+            if (! $schema->hasTable(config('cache.stores.database.table'))
+                || ! $lockSchema->hasTable(config('cache.stores.database.lock_table') ?? 'cache_locks')) {
+                $issues[] = 'The database cache tables are missing. Use CACHE_STORE=file or provide the configured tables.';
+            }
         }
 
         return $issues;
