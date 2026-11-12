@@ -76,6 +76,12 @@ if [[ -e public/storage || -L public/storage ]]; then
     }
 fi
 
+view_cache="$project/storage/framework/views"
+if [[ ! -d "$view_cache" || ! -w "$view_cache" || ! -x "$view_cache" || "$(realpath -e -- "$view_cache")" != "$view_cache" ]]; then
+    printf 'The site and deployment accounts need access to the physical storage/framework/views directory. Check its owner and permissions.\n' >&2
+    exit 1
+fi
+
 git worktree add --detach "$worktree" "$revision"
 ln -s -- "$project/.env" "$worktree/.env"
 ln -s -- "$stage/build" "$worktree/public/build"
@@ -96,7 +102,7 @@ ln -s -- "$stage/build" "$worktree/public/build"
 
 git merge --ff-only --no-overwrite-ignore "$revision"
 updated=true
-mkdir -p vendor public/build/assets storage/app/public storage/framework/{cache/data,sessions,views} storage/logs bootstrap/cache
+mkdir -p vendor public/build/assets storage/app/public storage/framework/{cache/data,sessions} storage/logs bootstrap/cache
 cp -a -- "$worktree/vendor/." vendor/
 cp -a -- "$stage/build/assets/." public/build/assets/
 manifest=$(mktemp public/build/.manifest.XXXXXXXX)
@@ -113,7 +119,11 @@ fi
 rm -f -- bootstrap/cache/config.php bootstrap/cache/services.php bootstrap/cache/packages.php \
     bootstrap/cache/events.php bootstrap/cache/routes-v7.php
 if [[ ! -L public/storage ]]; then php artisan storage:link --no-interaction; fi
-php artisan optimize --no-interaction
+# PHP-FPM compiles its own views. Blade can set an explicit mtime on an unchanged
+# compiled file, which a different Unix owner cannot do even with group write access.
+find "$view_cache" -maxdepth 1 -regextype posix-extended -type f -uid "$(id -u)" \
+    -regex '.*/[0-9a-f]{32}\.php' -delete
+php artisan optimize --except=views --no-interaction
 php artisan campusspace:check-production --mode="$mode" --schema --no-interaction
 release=$(mktemp storage/app/.campusspace-release.XXXXXXXX)
 printf '%s\n' "$revision" > "$release"

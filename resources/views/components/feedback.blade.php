@@ -1,4 +1,4 @@
-@if($errors->any())
+@if(isset($errors) && $errors->any())
     <x-notice tone="error">
         @if($errors->count() === 1)
             {{ $errors->first() }}

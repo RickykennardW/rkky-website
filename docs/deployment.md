@@ -107,6 +107,9 @@ A successful health response has `app` equal to `CampusSpace`, `ready` equal to 
 | CloudPanel default page or 403 | Confirm the domain points to the intended site, its document root ends in `/public`, and Nginx can traverse it and read `public/index.php`. |
 | 404 on routes such as `/rooms` | Confirm the Nginx Laravel fallback and run `php artisan route:list` from the checkout. |
 | 500 | Run `php artisan campusspace:check-production --schema`. Check the site PHP-FPM and Laravel logs privately for the specific exception. |
+| Blade `touch(): Utime failed` | Inspect the owner of `storage/framework/views` and its compiled PHP files. The deployment removes only its own hashed Blade files and skips `view:cache` on the live checkout. PHP-FPM recompiles the views as `rkky` on demand. |
 | PostgreSQL fails | Verify the existing database credentials, pooler port 5432, server reachability, `pdo_pgsql`, and `DB_SSLMODE=require`. |
 | Missing or unstyled assets | Confirm `public/build/manifest.json` and its files were installed by the workflow. Production uses these assets. |
 | HTTPS certificate fails validation | Check the site's certificate and chain in CloudPanel. Run the HTTPS checks again after the chain is trusted. |
+
+Keep `storage/framework/views` writable and traversable by the site PHP-FPM user and the SSH deployment account. On `rkky.my.id`, these accounts share the `rkky` group. If the accounts lose access, ask the CloudPanel administrator to restore group write and traversal on `/home/rkky/htdocs/rkky.my.id/storage/framework/views` and verify traversal on its parent directories. Run any SSH-side `view:cache` in CI or a staging worktree. On the live checkout use `php artisan optimize --except=views` so PHP-FPM owns the compiled files it updates.
