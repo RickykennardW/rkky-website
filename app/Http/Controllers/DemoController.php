@@ -9,6 +9,7 @@ use App\Models\Room;
 use App\Services\BookingPeriod;
 use App\Services\DemoWorkspace;
 use App\Services\SmartRoomPlanner;
+use App\Services\SmartScheduling;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -125,7 +126,7 @@ class DemoController extends Controller
     {
         $data = $request->validate([
             'room' => ['nullable', 'uuid'], 'equipment' => ['nullable', 'uuid'], 'plan' => ['nullable', 'string', 'max:16000'],
-            ...BookingPeriod::rules(false),
+            ...BookingPeriod::rules(false), ...SmartScheduling::inputRules(false),
         ]);
         $rooms = $this->demo->rooms();
         $room = $rooms->firstWhere('id', $data['room'] ?? null);
@@ -135,6 +136,7 @@ class DemoController extends Controller
             'selectedEquipment' => $data['equipment'] ?? null,
             'period' => array_replace(BookingPeriod::defaults(), array_intersect_key(array_filter($data), BookingPeriod::rules())),
             'plan' => $room && isset($data['plan']) ? $planner->decode($data['plan']) : null,
+            'requirements' => $data,
         ]);
     }
 

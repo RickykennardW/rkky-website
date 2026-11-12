@@ -49,6 +49,8 @@ Route::middleware('auth')->group(function (): void {
 });
 
 Route::middleware(['auth', 'verified'])->group(function (): void {
+    require __DIR__.'/scheduling.php';
+
     Route::get('/rooms', [CatalogController::class, 'rooms'])->name('rooms.index');
     Route::get('/rooms/{room}', [CatalogController::class, 'room'])->whereUuid('room')->name('rooms.show');
     Route::get('/equipment', [CatalogController::class, 'equipment'])->name('equipment.index');

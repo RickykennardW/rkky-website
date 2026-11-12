@@ -23,6 +23,7 @@
     </div>
 </section>
 @if($user)
+    <x-live-monitoring />
     <section aria-label="Reservation summary" class="grid gap-3 sm:grid-cols-3 sm:gap-4">
         <x-stat icon="calendar-days" label="Upcoming reservations" :count="$upcomingCount" detail="Approved and still ahead" />
         <x-stat icon="clock-3" label="Pending requests" :count="$pendingCount" detail="Waiting for campus review" />

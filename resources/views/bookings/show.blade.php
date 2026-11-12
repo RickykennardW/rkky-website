@@ -15,6 +15,9 @@
             <div><dt class="text-xs text-muted">Booking ID</dt><dd class="mt-1 break-all font-mono text-xs">{{ $booking->id }}</dd></div>
         </dl>
         @if($booking->review_note)<x-notice>{{ $booking->review_note }}</x-notice>@endif
+        @if($booking->required_facilities)
+            <p class="muted">Required facilities · {{ implode(', ', $booking->required_facilities) }}</p>
+        @endif
         @if($booking->planner)
             <div class="rounded-lg border border-line bg-[#0e141c] p-3">
                 <h3 class="text-sm font-semibold">Attached room plan</h3>

@@ -17,6 +17,7 @@ class DatabaseActor
         'app_state' => 'This action is no longer available for that request.',
         'app_room_unavailable' => 'The selected room is temporarily unavailable.',
         'app_capacity' => 'Total attendance exceeds the room’s capacity.',
+        'app_facilities' => 'The selected room does not have all required facilities.',
         'app_room_conflict' => 'The room is already reserved during this period.',
         'app_equipment_conflict' => 'There are insufficient usable equipment units for this period.',
         'app_items' => 'Choose a room or at least one equipment item.',

@@ -2,13 +2,15 @@
     <section class="panel grid gap-4 p-5">
         <h2 class="section-title">Review request</h2>
         <div class="grid items-start gap-4 lg:grid-cols-2">
-            <form method="post" action="{{ route('admin.bookings.review', $booking) }}" class="grid gap-3" data-confirm="Approve this request and allocate its resources?">
+            <form method="post" action="{{ route('admin.bookings.review', $booking) }}" class="grid gap-3"
+                  @unless(config('campusspace.demo')) data-confirm="Approve this request and allocate its resources?" @endunless>
                 @csrf
                 <input type="hidden" name="decision" value="approve">
                 <p class="muted">Room and equipment availability is checked again at approval.</p>
                 <button class="button button-primary justify-self-start"><x-icon name="calendar-check" class="size-4" /> Approve request</button>
             </form>
-            <form method="post" action="{{ route('admin.bookings.review', $booking) }}" class="grid gap-3" data-confirm="Reject this request?">
+            <form method="post" action="{{ route('admin.bookings.review', $booking) }}" class="grid gap-3"
+                  @unless(config('campusspace.demo')) data-confirm="Reject this request?" @endunless>
                 @csrf
                 <input type="hidden" name="decision" value="reject">
                 <label class="label">Rejection reason<textarea class="input min-h-20" name="reason" required minlength="3" maxlength="1000">{{ old('reason') }}</textarea></label>

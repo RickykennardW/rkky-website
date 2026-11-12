@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Services\BookingPeriod;
+use App\Services\SchedulingRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Validator;
@@ -29,6 +30,7 @@ class StoreBookingRequest extends FormRequest
             'quantities' => ['nullable', 'array', 'max:100'],
             'quantities.*' => ['required', 'integer', 'between:1,10000'],
             'planner' => ['nullable', 'string', 'max:16000'],
+            ...SchedulingRules::facilityRules(),
         ];
     }
 
@@ -42,6 +44,9 @@ class StoreBookingRequest extends FormRequest
             $quantities = $this->input('quantities') ?? [];
             if (! $this->filled('room_id') && $quantities === []) {
                 $validator->errors()->add('room_id', 'Choose a room or at least one equipment item.');
+            }
+            if (! $this->filled('room_id') && ! empty($this->input('required_facilities'))) {
+                $validator->errors()->add('required_facilities', 'Choose a room for the requested facilities.');
             }
 
             foreach (array_keys($quantities) as $id) {

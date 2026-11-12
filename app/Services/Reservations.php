@@ -14,14 +14,24 @@ class Reservations
 
     public function reserve(User $user, array $details, BookingPeriod $period, array $items, ?array $plan): string
     {
-        return $this->actor->run($user, fn (): string => DB::scalar(
-            'select public.create_booking(?::uuid, ?, ?, ?::integer, ?::integer, ?::timestamptz, ?::timestamptz, ?::jsonb, ?::jsonb)',
-            [
-                $details['room_id'] ?? null, $details['title'], $details['description'],
-                $details['participants'], $details['committee'], ...$period->bindings(),
-                json_encode($items, JSON_THROW_ON_ERROR), $plan === null ? null : json_encode($plan, JSON_THROW_ON_ERROR),
-            ],
-        ));
+        return $this->actor->run($user, function () use ($details, $period, $items, $plan): string {
+            $id = DB::scalar(
+                'select public.create_booking(?::uuid, ?, ?, ?::integer, ?::integer, ?::timestamptz, ?::timestamptz, ?::jsonb, ?::jsonb)',
+                [
+                    $details['room_id'] ?? null, $details['title'], $details['description'],
+                    $details['participants'], $details['committee'], ...$period->bindings(),
+                    json_encode($items, JSON_THROW_ON_ERROR), $plan === null ? null : json_encode($plan, JSON_THROW_ON_ERROR),
+                ],
+            );
+            if (! empty($details['required_facilities'])) {
+                // The advisory lock acquired by create_booking is held until this transaction commits.
+                DB::table('public.bookings')->where('id', $id)->update([
+                    'required_facilities' => json_encode(array_values($details['required_facilities']), JSON_THROW_ON_ERROR),
+                ]);
+            }
+
+            return $id;
+        });
     }
 
     public function cancel(User $user, Booking $booking): void

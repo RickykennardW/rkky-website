@@ -6,6 +6,8 @@
         ['equipment.index', 'Equipment', 'boxes', ['equipment.*']],
         ['bookings.index', 'My Bookings', 'calendar-days', ['bookings.*']],
         ['planner.show', 'Room Planner', 'grid-2x2', ['planner.*']],
+        ['scheduling.index', 'Smart Scheduling', 'calendar-range', ['scheduling.*']],
+        ['monitoring.index', 'Live Monitoring', 'clock-3', ['monitoring.*']],
     ];
     $admin = [
         ['admin.dashboard', 'Admin Overview', 'shield-check', ['admin.dashboard']],

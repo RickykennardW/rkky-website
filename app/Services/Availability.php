@@ -20,6 +20,24 @@ class Availability
         ));
     }
 
+    public function resourcesFor(User $user, array $periods): array
+    {
+        $intervals = array_values(array_map(fn (BookingPeriod $period) => $period->bindings(), $periods));
+
+        return $this->actor->run($user, function () use ($periods, $intervals): array {
+            $rows = DB::select(<<<'SQL'
+                select public.resource_availability((item->>0)::timestamptz, (item->>1)::timestamptz) as resources
+                from jsonb_array_elements(?::jsonb) with ordinality as requested(item, position)
+                order by position
+                SQL, [json_encode($intervals, JSON_THROW_ON_ERROR)]);
+
+            return array_combine(array_keys($periods), array_map(
+                fn (object $row) => json_decode($row->resources, true, flags: JSON_THROW_ON_ERROR),
+                $rows,
+            ));
+        });
+    }
+
     public function week(User $user, Room $room, CarbonImmutable $start): array
     {
         $period = new BookingPeriod($start, $start->addDays(7));

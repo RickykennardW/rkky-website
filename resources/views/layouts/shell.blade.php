@@ -19,14 +19,14 @@
                     <span aria-hidden="true" class="hidden text-[#526173] sm:inline">/</span>
                     <span class="truncate text-sm font-medium">@yield('title', 'Dashboard')</span>
                 </div>
-                <div class="flex items-center gap-2">
+                <div class="flex shrink-0 items-center gap-2">
                     @auth
                         @if(config('campusspace.demo'))
                             <a class="button button-ghost px-2.5" href="{{ route('login') }}">Switch demo role</a>
                         @else
                             <a class="button button-ghost px-2.5" href="{{ route('notifications.index') }}" aria-label="Notifications"><x-icon name="bell" /></a>
                         @endif
-                        <a class="button button-primary" href="{{ route('bookings.create') }}"><x-icon name="calendar-plus" class="size-4" /><span>New booking</span></a>
+                        <a class="button button-primary px-2.5 sm:px-4" href="{{ route('bookings.create') }}" aria-label="New booking"><x-icon name="calendar-plus" class="size-4" /><span class="hidden sm:inline">New booking</span></a>
                     @else
                         <a class="button button-primary" href="{{ route('login') }}">Sign in <x-icon name="arrow-up-right" class="size-4" /></a>
                     @endauth

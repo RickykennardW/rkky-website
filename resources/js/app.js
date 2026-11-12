@@ -8,9 +8,11 @@ import {
 } from "lucide";
 import { bookingForm } from "./booking-form";
 import { roomPlanner } from "./room-planner";
+import { roomMonitoring } from "./room-monitoring";
 
 Alpine.data("bookingForm", bookingForm);
 Alpine.data("roomPlanner", roomPlanner);
+Alpine.data("roomMonitoring", roomMonitoring);
 Alpine.start();
 
 createIcons({

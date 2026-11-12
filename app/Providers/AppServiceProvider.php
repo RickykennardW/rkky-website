@@ -24,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
                 'auth.guards.demo' => ['driver' => 'campusspace-demo'],
                 'session.driver' => 'file',
                 'session.cookie' => 'campusspace_demo_session',
+                'session.block' => true,
                 'cache.default' => 'file',
             ]);
         }

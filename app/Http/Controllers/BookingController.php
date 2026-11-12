@@ -12,6 +12,7 @@ use App\Services\BookingPeriod;
 use App\Services\Inventory;
 use App\Services\Reservations;
 use App\Services\SmartRoomPlanner;
+use App\Services\SmartScheduling;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -48,6 +49,7 @@ class BookingController extends Controller
             'equipment' => ['nullable', 'uuid'],
             'plan' => ['nullable', 'string', 'max:16000'],
             ...BookingPeriod::rules(false),
+            ...SmartScheduling::inputRules(false),
         ]);
 
         $rooms = Room::query()->where('active', true)->orderBy('name')->get(['id', 'name', 'capacity']);
@@ -61,6 +63,7 @@ class BookingController extends Controller
             'selectedEquipment' => $data['equipment'] ?? null,
             'period' => array_replace(BookingPeriod::defaults(), array_intersect_key(array_filter($data), BookingPeriod::rules())),
             'plan' => $plan,
+            'requirements' => $data,
         ]);
     }
 

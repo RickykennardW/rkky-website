@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\DemoController;
+use App\Http\Controllers\MonitoringController;
 use App\Http\Controllers\PlannerController;
 use Illuminate\Support\Facades\Route;
 
@@ -9,6 +10,11 @@ Route::get('/login', [DemoController::class, 'login'])->name('login');
 Route::redirect('/register', '/login')->name('register');
 Route::post('/login', [DemoController::class, 'enter'])->middleware('throttle:20,1')->block();
 Route::post('/logout', [DemoController::class, 'logout'])->middleware('auth')->block()->name('logout');
+
+Route::middleware('auth')->group(function (): void {
+    require __DIR__.'/scheduling.php';
+    Route::post('/monitoring/sample', [MonitoringController::class, 'sample'])->middleware('throttle:10,1')->block()->name('monitoring.sample');
+});
 
 Route::controller(DemoController::class)->middleware('auth')->group(function (): void {
     Route::get('/rooms', 'rooms')->name('rooms.index');

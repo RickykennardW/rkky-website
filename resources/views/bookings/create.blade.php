@@ -2,7 +2,9 @@
 @section('title', 'New booking')
 
 @section('content')
-<x-heading title="New booking" description="Request a room, equipment, or both. A campus administrator reviews each request." />
+<x-heading title="New booking" description="Request a room, equipment, or both. A campus administrator reviews each request.">
+    <a class="button button-secondary" href="{{ route('scheduling.index') }}">Smart Scheduling</a>
+</x-heading>
 @php
     $roomId = old('room_id', $selectedRoom?->id);
     $attachedPlan = old('planner', $plan ? json_encode($plan, JSON_THROW_ON_ERROR) : '');
@@ -18,6 +20,7 @@
             @foreach($rooms as $room)<option value="{{ $room->id }}" @selected($roomId === $room->id)>{{ $room->name }} · {{ $room->capacity }} people</option>@endforeach
         </select></label>
         <x-period-fields :period="$period" required />
+        <x-required-facilities :selected="$requirements['required_facilities'] ?? []" />
         <div class="flex flex-wrap items-center gap-3">
             <button type="button" x-on:click="check()" x-bind:disabled="checking" class="button button-secondary"><x-icon name="calendar-range" class="size-4" /><span x-text="checking ? 'Checking…' : 'Check availability'">Check availability</span></button>
             <span role="status" class="text-sm" x-bind:class="availabilityError ? 'text-negative' : 'text-positive'" x-text="availabilityMessage"></span>
@@ -28,8 +31,8 @@
         <label class="label">Event name<input class="input" name="title" required minlength="2" maxlength="120" value="{{ old('title') }}" placeholder="e.g. Student committee workshop"></label>
         <label class="label">Purpose or description<textarea class="input min-h-24 resize-y" name="description" required minlength="2" maxlength="2000">{{ old('description') }}</textarea></label>
         <div class="grid grid-cols-2 gap-3">
-            <label class="label">Participants<input class="input" name="participants" type="number" min="1" max="500" required value="{{ old('participants', $plan['participants'] ?? 1) }}"></label>
-            <label class="label">Committee members<input class="input" name="committee" type="number" min="0" max="500" required value="{{ old('committee', $plan['committee'] ?? 0) }}"></label>
+            <label class="label">Participants<input class="input" name="participants" type="number" min="1" max="500" required value="{{ old('participants', $requirements['participants'] ?? $plan['participants'] ?? 1) }}"></label>
+            <label class="label">Committee members<input class="input" name="committee" type="number" min="0" max="500" required value="{{ old('committee', $requirements['committee'] ?? $plan['committee'] ?? 0) }}"></label>
         </div>
         <div class="flex flex-wrap items-center gap-3" x-show="roomId" x-cloak>
             <a :href="plannerUrl()" class="button button-secondary"><x-icon name="grid-2x2" class="size-4" /> Open room planner</a>
@@ -46,7 +49,7 @@
                     <label class="w-22 shrink-0"><span class="sr-only">{{ $item->name }} quantity</span>
                         <input class="input" type="number" min="0" max="{{ $maximum }}" x-bind:max="limits?.['{{ $item->id }}'] ?? {{ $maximum }}"
                                name="quantities[{{ $item->id }}]" data-equipment-name="{{ $item->name }}"
-                               value="{{ old('quantities.'.$item->id, $selectedEquipment === $item->id && $maximum > 0 ? 1 : 0) }}">
+                               value="{{ old('quantities.'.$item->id, $requirements['quantities'][$item->id] ?? ($selectedEquipment === $item->id && $maximum > 0 ? 1 : 0)) }}">
                     </label>
                 </li>
             @empty

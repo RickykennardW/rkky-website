@@ -22,6 +22,7 @@ class Booking extends Model
             'ends_at' => 'immutable_datetime',
             'reviewed_at' => 'immutable_datetime',
             'planner' => 'array',
+            'required_facilities' => 'array',
         ];
     }
 
