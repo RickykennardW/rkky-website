@@ -16,7 +16,7 @@
             </form>
         </div>
     </section>
-@elseif($booking->status === 'approved')
+@elseif($booking->status === 'approved' && !config('campusspace.demo'))
     @if($booking->loans->whereNull('returned_at')->isNotEmpty())
         <form method="post" action="{{ route('admin.bookings.return', $booking) }}" class="panel grid gap-4 p-5" data-confirm="Record this equipment return?">
             @csrf

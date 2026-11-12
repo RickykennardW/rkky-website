@@ -31,6 +31,22 @@ The helper reads the active Laravel connection from the local checkout and verif
 
 When a key has been exposed, rotate the affected environment with `php artisan key:generate`. For production, check encrypted application data before rotating and schedule for existing sessions to expire. Omit the exposed key from `APP_PREVIOUS_KEYS`. [Laravel encryption and key rotation](https://laravel.com/framework/docs/13.x/encryption#gracefully-rotating-encryption-keys)
 
+## Presentation Demo Mode
+
+Use **Actions → Deploy CampusSpace → Run workflow → main → demo** for the presentation. The server release marker enables Demo Mode. The deployment keeps the existing private environment, checks PHP and Vite assets, and skips database migrations. Normal deployment still checks PostgreSQL and removes the demo marker after the normal release passes preflight.
+
+Open **Start demo**, choose **Student**, and use **Switch demo role** to review that browser's requests as the demo administrator. Signing out clears that browser's demo requests. The room and equipment catalog contains fictional data.
+
+To rehearse locally after building the assets, run these commands in PowerShell.
+
+```powershell
+npm run build
+$env:CAMPUSSPACE_DEMO_MODE='true'
+php artisan serve --host=127.0.0.1 --port=8013
+```
+
+Open [the local demo](http://127.0.0.1:8013). When the rehearsal ends, stop the server and remove the environment variable from that terminal with `Remove-Item Env:CAMPUSSPACE_DEMO_MODE`.
+
 ## CloudPanel administrator setup
 
 1. Enable PostgreSQL support for **PHP 8.4 CLI and PHP-FPM**. Install `php8.4-pgsql` on the host if the module is absent, and reload PHP-FPM. Confirm `php -m` lists `pdo_pgsql` in the site's SSH shell. Select PHP 8.4 in the site's **PHP Settings**. [CloudPanel site settings](https://www.cloudpanel.io/docs/v2/frontend-area/settings/)

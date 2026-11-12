@@ -21,7 +21,7 @@ class StoreBookingRequest extends FormRequest
     {
         return [
             ...BookingPeriod::rules(),
-            'room_id' => ['nullable', 'uuid', 'exists:rooms,id'],
+            'room_id' => ['nullable', 'uuid', ...(config('campusspace.demo') ? [] : ['exists:rooms,id'])],
             'title' => ['required', 'string', 'min:2', 'max:120'],
             'description' => ['required', 'string', 'min:2', 'max:2000'],
             'participants' => ['required', 'integer', 'between:1,500'],

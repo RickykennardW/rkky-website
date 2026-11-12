@@ -14,8 +14,10 @@
                 <a href="{{ route('rooms.index') }}" class="button button-primary">Explore rooms <x-icon name="arrow-right" class="size-4" /></a>
                 <a href="{{ route('equipment.index') }}" class="button button-secondary border-[#46607d] bg-[#152840]"><x-icon name="boxes" class="size-4" /> Equipment</a>
             @else
-                <a href="{{ route('login') }}" class="button button-primary">Sign in <x-icon name="arrow-right" class="size-4" /></a>
-                <a href="{{ route('register') }}" class="button button-secondary border-[#46607d] bg-[#152840]">Create an account</a>
+                <a href="{{ route('login') }}" class="button button-primary">{{ config('campusspace.demo') ? 'Start demo' : 'Sign in' }} <x-icon name="arrow-right" class="size-4" /></a>
+                @unless(config('campusspace.demo'))
+                    <a href="{{ route('register') }}" class="button button-secondary border-[#46607d] bg-[#152840]">Create an account</a>
+                @endunless
             @endif
         </div>
     </div>

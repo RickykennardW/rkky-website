@@ -16,7 +16,7 @@
     ];
     $groups = ['Workspace' => $workspace];
     if ($account?->isAdmin()) {
-        $groups['Administration'] = $admin;
+        $groups['Administration'] = config('campusspace.demo') ? array_slice($admin, 0, 2) : $admin;
     }
 @endphp
 <div class="flex h-full flex-col">
@@ -50,7 +50,7 @@
                 </form>
             </div>
         @else
-            <a href="{{ route('register') }}" class="button button-secondary w-full">Create an account <x-icon name="arrow-up-right" class="size-4" /></a>
+            <a href="{{ route(config('campusspace.demo') ? 'login' : 'register') }}" class="button button-secondary w-full">{{ config('campusspace.demo') ? 'Choose demo role' : 'Create an account' }} <x-icon name="arrow-up-right" class="size-4" /></a>
         @endif
     </div>
 </div>

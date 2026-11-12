@@ -47,6 +47,14 @@ class ProductionReadiness
             }
         }
 
+        if (config('campusspace.demo')) {
+            if ($withSchema && ! $this->assetsReady()) {
+                $issues[] = 'The Vite production assets are missing.';
+            }
+
+            return $issues;
+        }
+
         if (config('database.default') !== 'pgsql') {
             $issues[] = 'Set DB_CONNECTION=pgsql.';
 
@@ -107,11 +115,11 @@ class ProductionReadiness
     public function applicationReady(): bool
     {
         try {
-            return $this->assetsReady()
-                && Schema::hasTable('public.rooms')
+            return $this->assetsReady() && (config('campusspace.demo') || (
+                Schema::hasTable('public.rooms')
                 && Schema::hasTable('public.bookings')
                 && Schema::hasTable('campus_private.users')
-                && Schema::hasTable('campus_private.notifications');
+                && Schema::hasTable('campus_private.notifications')));
         } catch (Throwable) {
             return false;
         }

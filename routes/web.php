@@ -10,8 +10,6 @@ use App\Http\Controllers\PlannerController;
 use App\Services\ProductionReadiness;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', DashboardController::class)->name('dashboard');
-
 Route::get('/health/campusspace', function (ProductionReadiness $readiness) {
     $ready = $readiness->applicationReady();
     $releasePath = storage_path('app/campusspace-release');
@@ -19,11 +17,20 @@ Route::get('/health/campusspace', function (ProductionReadiness $readiness) {
 
     return response()->json([
         'app' => 'CampusSpace',
+        'mode' => config('campusspace.demo') ? 'demo' : 'normal',
         'ready' => $ready,
         'release' => preg_match('/^[0-9a-f]{40}$/D', $release) ? $release : null,
     ], $ready ? 200 : 503)
         ->header('Cache-Control', 'no-store');
 })->name('health.campusspace');
+
+if (config('campusspace.demo')) {
+    require __DIR__.'/demo.php';
+
+    return;
+}
+
+Route::get('/', DashboardController::class)->name('dashboard');
 
 Route::middleware('guest')->group(function (): void {
     Route::get('/login', [AuthController::class, 'loginForm'])->name('login');

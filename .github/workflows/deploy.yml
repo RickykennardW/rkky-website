@@ -6,6 +6,14 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      mode:
+        description: CampusSpace deployment mode
+        type: choice
+        options:
+          - normal
+          - demo
+        default: normal
 
 permissions:
   contents: read
@@ -16,6 +24,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       deploy_requested: ${{ steps.deployment.outputs.requested }}
+      deploy_mode: ${{ steps.deployment.outputs.mode }}
     services:
       postgres:
         image: postgres:17
@@ -34,8 +43,10 @@ jobs:
         id: deployment
         env:
           AUTO_DEPLOY: ${{ vars.CAMPUSSPACE_AUTO_DEPLOY }}
+          MANUAL_MODE: ${{ inputs.mode }}
         run: |
           requested=false
+          mode=normal
           message='CI only. Use Run workflow on main for a manual deployment.'
           if [[ "$GITHUB_EVENT_NAME" == workflow_dispatch ]]; then
             if [[ "$GITHUB_REF" != refs/heads/main ]]; then
@@ -43,12 +54,15 @@ jobs:
               exit 1
             fi
             requested=true
-            message='Manual deployment requested for main.'
+            mode="${MANUAL_MODE:-normal}"
+            [[ "$mode" == normal || "$mode" == demo ]]
+            message="Manual deployment requested for main in $mode mode."
           elif [[ "$GITHUB_EVENT_NAME" == push && "$GITHUB_REF" == refs/heads/main && "$AUTO_DEPLOY" == true ]]; then
             requested=true
             message='Automatic deployment requested for main.'
           fi
           printf 'requested=%s\n' "$requested" >> "$GITHUB_OUTPUT"
+          printf 'mode=%s\n' "$mode" >> "$GITHUB_OUTPUT"
           printf '%s\n' "$message" >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/checkout@v6
       - uses: shivammathur/setup-php@v2
@@ -77,6 +91,18 @@ jobs:
           php artisan test
       - name: Build production assets
         run: npm run build
+      - name: Exercise Demo Mode without PostgreSQL extensions
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: ':pdo_pgsql, :pgsql'
+          coverage: none
+      - name: Test the isolated Demo Mode
+        env:
+          CAMPUSSPACE_DEMO_MODE: 'true'
+        run: |
+          php -r 'exit(extension_loaded("pdo_pgsql") ? 1 : 0);'
+          php vendor/bin/phpunit tests/Demo
       - uses: actions/upload-artifact@v6
         with:
           name: campusspace-vite-${{ github.sha }}
@@ -105,6 +131,7 @@ jobs:
           SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
           SSH_KNOWN_HOSTS: ${{ secrets.SSH_KNOWN_HOSTS }}
+          DEPLOY_MODE: ${{ needs.validate.outputs.deploy_mode }}
         run: |
           set -euo pipefail
           for name in SSH_HOST SSH_USERNAME SSH_PRIVATE_KEY SSH_KNOWN_HOSTS; do
@@ -143,4 +170,5 @@ jobs:
           stage=$(ssh "${ssh_options[@]}" "$target" 'mktemp -d /tmp/campusspace-deploy.XXXXXXXX')
           [[ "$stage" =~ ^/tmp/campusspace-deploy\.[A-Za-z0-9]{8}$ ]]
           scp "${ssh_options[@]}" .github/scripts/deploy-campusspace.sh "$ssh_dir/assets.tar.gz" "$target:$stage/"
-          ssh "${ssh_options[@]}" "$target" bash "$stage/deploy-campusspace.sh" "$GITHUB_SHA" "$stage"
+          [[ "$DEPLOY_MODE" == normal || "$DEPLOY_MODE" == demo ]]
+          ssh "${ssh_options[@]}" "$target" bash "$stage/deploy-campusspace.sh" "$GITHUB_SHA" "$stage" "$DEPLOY_MODE"

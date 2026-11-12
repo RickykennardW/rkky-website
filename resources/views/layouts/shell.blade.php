@@ -21,7 +21,11 @@
                 </div>
                 <div class="flex items-center gap-2">
                     @auth
-                        <a class="button button-ghost px-2.5" href="{{ route('notifications.index') }}" aria-label="Notifications"><x-icon name="bell" /></a>
+                        @if(config('campusspace.demo'))
+                            <a class="button button-ghost px-2.5" href="{{ route('login') }}">Switch demo role</a>
+                        @else
+                            <a class="button button-ghost px-2.5" href="{{ route('notifications.index') }}" aria-label="Notifications"><x-icon name="bell" /></a>
+                        @endif
                         <a class="button button-primary" href="{{ route('bookings.create') }}"><x-icon name="calendar-plus" class="size-4" /><span>New booking</span></a>
                     @else
                         <a class="button button-primary" href="{{ route('login') }}">Sign in <x-icon name="arrow-up-right" class="size-4" /></a>
@@ -30,6 +34,9 @@
             </div>
         </header>
         <main id="main" class="mx-auto grid max-w-[1470px] gap-7 px-4 py-6 sm:px-7 sm:py-8 xl:px-9">
+            @if(config('campusspace.demo'))
+                <x-notice><strong>Demo Mode</strong> · Sample campus data and bookings for this browser session.</x-notice>
+            @endif
             <x-feedback />
             @yield('content')
         </main>

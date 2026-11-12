@@ -3,7 +3,9 @@ set -Eeuo pipefail
 
 revision="${1:-}"
 stage="${2:-}"
+mode="${3:-normal}"
 [[ "$revision" =~ ^[0-9a-f]{40}$ && "$stage" =~ ^/tmp/campusspace-deploy\.[A-Za-z0-9]{8}$ ]]
+[[ "$mode" == normal || "$mode" == demo ]]
 [[ -d "$stage" && "$(realpath -- "$stage")" == "$stage" && -s "$stage/assets.tar.gz" ]]
 umask 022
 
@@ -47,10 +49,14 @@ flock -n 9 || { printf 'A CampusSpace deployment is already running.\n' >&2; exi
     printf 'The server checkout has tracked local changes. Review them before deploying.\n' >&2
     exit 1
 }
-php -r 'exit(PHP_VERSION_ID >= 80400 && extension_loaded("pdo_pgsql") ? 0 : 1);' || {
-    printf 'The deployment account needs PHP 8.4 or later with pdo_pgsql.\n' >&2
+php -r 'exit(PHP_VERSION_ID >= 80400 ? 0 : 1);' || {
+    printf 'The deployment account needs PHP 8.4 or later.\n' >&2
     exit 1
 }
+if [[ "$mode" == normal ]] && ! php -r 'exit(extension_loaded("pdo_pgsql") ? 0 : 1);'; then
+    printf 'The deployment account needs PHP 8.4 or later with pdo_pgsql.\n' >&2
+    exit 1
+fi
 
 previous=$(git rev-parse HEAD)
 GIT_TERMINAL_PROMPT=0 git fetch --no-tags origin refs/heads/main
@@ -64,7 +70,7 @@ mkdir "$stage/build"
 tar --extract --gzip --file "$stage/assets.tar.gz" --directory "$stage/build" --no-same-owner --no-same-permissions
 [[ -s "$stage/build/manifest.json" && -d "$stage/build/assets" ]]
 if [[ -e public/storage || -L public/storage ]]; then
-    [[ -L public/storage && "$(readlink -f -- public/storage)" == "$project/storage/app/public" ]] || {
+    [[ -L public/storage && "$(realpath -m -- public/storage)" == "$project/storage/app/public" ]] || {
         printf 'The existing public/storage entry must point to storage/app/public.\n' >&2
         exit 1
     }
@@ -75,13 +81,20 @@ ln -s -- "$project/.env" "$worktree/.env"
 ln -s -- "$stage/build" "$worktree/public/build"
 (
     cd "$worktree"
-    composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress
-    php artisan campusspace:check-production --no-interaction
-    php artisan migrate --force --no-interaction
-    php artisan campusspace:check-production --schema --no-interaction
+    composer_flags=(--no-dev --prefer-dist --optimize-autoloader --no-interaction --no-progress)
+    if [[ "$mode" == demo ]]; then
+        touch storage/app/campusspace-demo
+        composer_flags+=(--ignore-platform-req=ext-pdo_pgsql)
+    fi
+    composer install "${composer_flags[@]}"
+    php artisan campusspace:check-production --mode="$mode" --no-interaction
+    if [[ "$mode" == normal ]]; then
+        php artisan migrate --force --no-interaction
+    fi
+    php artisan campusspace:check-production --mode="$mode" --schema --no-interaction
 )
 
-git merge --ff-only "$revision"
+git merge --ff-only --no-overwrite-ignore "$revision"
 updated=true
 mkdir -p vendor public/build/assets storage/app/public storage/framework/{cache/data,sessions,views} storage/logs bootstrap/cache
 cp -a -- "$worktree/vendor/." vendor/
@@ -91,10 +104,15 @@ install -m 644 "$stage/build/manifest.json" "$manifest"
 mv -f -- "$manifest" public/build/manifest.json
 if [[ -f public/hot || -L public/hot ]]; then rm -f -- public/hot; fi
 
+if [[ "$mode" == demo ]]; then
+    touch storage/app/campusspace-demo
+else
+    rm -f -- storage/app/campusspace-demo
+fi
 php artisan config:clear --no-interaction
 if [[ ! -L public/storage ]]; then php artisan storage:link --no-interaction; fi
 php artisan optimize --no-interaction
-php artisan campusspace:check-production --schema --no-interaction
+php artisan campusspace:check-production --mode="$mode" --schema --no-interaction
 release=$(mktemp storage/app/.campusspace-release.XXXXXXXX)
 printf '%s\n' "$revision" > "$release"
 chmod 644 "$release"
@@ -126,8 +144,8 @@ verify_https /health/campusspace "$stage/health.json"
 php -r '
 $health = json_decode(stream_get_contents(STDIN), true);
 exit(($health["app"] ?? null) === "CampusSpace" && ($health["ready"] ?? false) === true
-    && ($health["release"] ?? null) === $argv[1] ? 0 : 1);
-' "$revision" < "$stage/health.json" || {
+    && ($health["release"] ?? null) === $argv[1] && ($health["mode"] ?? null) === $argv[2] ? 0 : 1);
+' "$revision" "$mode" < "$stage/health.json" || {
     printf 'HTTPS health did not report the expected ready CampusSpace release.\n' >&2
     exit 1
 }

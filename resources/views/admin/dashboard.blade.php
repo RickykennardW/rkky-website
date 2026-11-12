@@ -16,7 +16,7 @@
 @endif
 <section class="panel flex flex-wrap items-center justify-between gap-3 p-5">
     <div><h2 class="section-title">Inventory summary</h2><p class="muted mt-1">{{ $equipmentCount }} equipment types · {{ $usable }} usable units across available items.</p></div>
-    <a href="{{ route('admin.equipment.index') }}" class="button button-secondary">Manage inventory <x-icon name="arrow-right" class="size-4" /></a>
+    <a href="{{ route(config('campusspace.demo') ? 'equipment.index' : 'admin.equipment.index') }}" class="button button-secondary">{{ config('campusspace.demo') ? 'Browse equipment' : 'Manage inventory' }} <x-icon name="arrow-right" class="size-4" /></a>
 </section>
 <div class="grid gap-5 xl:grid-cols-2">
     <section class="grid content-start gap-3"><h2 class="section-title">Pending review</h2><x-booking-list :bookings="$pending" admin empty="No pending requests" /></section>
