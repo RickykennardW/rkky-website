@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Booking;
-use App\Models\Room;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -21,12 +20,23 @@ class DashboardController extends Controller
             return redirect()->route('verification.notice');
         }
 
-        $bookings = Booking::query()->ownedBy($user);
+        $now = now()->toIso8601String();
+        $bookings = Booking::query()->ownedBy($user)->with('room')
+            ->orderByRaw(<<<'SQL'
+                case
+                    when status = 'approved' and starts_at <= ? and ends_at > ? then 0
+                    when status in ('approved', 'pending') and starts_at > ? then 1
+                    else 2
+                end,
+                case
+                    when (status = 'approved' and ends_at > ?) or (status = 'pending' and starts_at > ?) then starts_at
+                end
+                SQL, [$now, $now, $now, $now, $now])
+            ->latest()->orderByDesc('id')->limit(3)->get();
 
         return view('dashboard', [
             'user' => $user,
-            'rooms' => Room::query()->with('facilities')->where('active', true)->orderBy('name')->limit(3)->get(),
-            'latestBooking' => $bookings->with('room')->latest()->orderByDesc('id')->first(),
+            'bookings' => $bookings,
         ]);
     }
 }

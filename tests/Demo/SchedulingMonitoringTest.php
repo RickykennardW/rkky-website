@@ -13,7 +13,8 @@ class SchedulingMonitoringTest extends TestCase
         $this->assertSame([], config('database.connections'));
         $this->post('/login', ['role' => 'student'])->assertRedirect('/');
         Auth::forgetGuards();
-        $this->get('/')->assertOk()->assertSee('Lihat status ruangan');
+        $this->get('/rooms')->assertOk()->assertSee('Lihat status ruangan')->assertSee(route('monitoring.index'));
+        $this->get('/monitoring')->assertOk()->assertSee('Pantau Ruangan');
         $example = $this->get('/smart-scheduling?example=1')->assertOk()->viewData('fields');
         $result = $this->post('/smart-scheduling', [...$example, 'action' => 'check'])->assertOk()
             ->assertSee('Ruangan sudah digunakan pada jam tersebut.')->assertSee('Jam lain untuk ruangan pilihan')

@@ -30,7 +30,8 @@ class ReservationsTest extends TestCase
         $room = $this->room();
         $data = $this->requestData($room);
 
-        $this->actingAs($student)->get('/')->assertOk()->assertSee($room->name);
+        $this->actingAs($student)->get('/')->assertOk()
+            ->assertSee('Kamu belum punya peminjaman.')->assertDontSee($room->name);
         $this->get('/rooms?capacity=50')->assertOk()->assertSee($room->name)->assertDontSee('Classroom B');
         $this->get(route('rooms.show', $room))->assertOk()->assertSee('Kalender ruangan');
         $this->get('/equipment')->assertOk()->assertSee('Portable Projector');
@@ -40,11 +41,49 @@ class ReservationsTest extends TestCase
         $booking = Booking::query()->ownedBy($student)->sole();
         $this->assertSame('pending', $booking->status);
         $this->get('/bookings')->assertOk()->assertSee($booking->title);
+        $this->get('/')->assertOk()->assertSee($room->name)->assertSee('Menunggu Persetujuan');
 
+        $this->actingAs($other)->get('/')->assertOk()->assertSee('Kamu belum punya peminjaman.')
+            ->assertDontSee(route('bookings.show', $booking))->assertDontSee($room->name);
         $this->actingAs($other)->get(route('bookings.show', $booking))->assertNotFound();
         $this->post(route('bookings.cancel', $booking))->assertNotFound();
         $this->actingAs($student)->post(route('bookings.cancel', $booking))->assertRedirect();
         $this->assertSame('cancelled', $booking->fresh()->status);
+    }
+
+    public function test_dashboard_limits_its_preview_to_three_relevant_bookings(): void
+    {
+        $student = User::factory()->create();
+        $other = User::factory()->create();
+        $room = $this->room();
+        $now = now('Asia/Jakarta')->startOfMinute()->toImmutable();
+        $this->travelTo($now);
+
+        foreach ([
+            ['pending', 180, $student],
+            ['approved', 60, $student],
+            ['approved', -30, $student],
+            ['rejected', 240, $student],
+            ['approved', -20, $other],
+        ] as $index => [$status, $offset, $owner]) {
+            DB::table('bookings')->insert([
+                'user_id' => $owner->id, 'room_id' => $room->id, 'status' => $status,
+                'title' => 'Dashboard fixture '.$index, 'description' => 'Dashboard ranking fixture.',
+                'participants' => 5, 'committee' => 0,
+                'starts_at' => $now->addMinutes($offset)->toIso8601String(),
+                'ends_at' => $now->addMinutes($offset + 60)->toIso8601String(),
+            ]);
+        }
+
+        $response = $this->actingAs($student)->get('/')->assertOk()
+            ->assertSee('Lihat Semua Peminjaman')->assertDontSee('x-data="roomMonitoring"', false)
+            ->assertDontSee('Cari ruangan berdasarkan jadwal');
+        $this->assertSame(
+            ['Dashboard fixture 2', 'Dashboard fixture 1', 'Dashboard fixture 0'],
+            $response->viewData('bookings')->pluck('title')->all(),
+        );
+
+        $this->travelBack();
     }
 
     public function test_admin_approval_prevents_overlapping_reservations_and_rejection_notifies_the_owner(): void

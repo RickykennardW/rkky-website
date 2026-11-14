@@ -2,7 +2,11 @@
 @section('title', 'Cari Ruangan')
 
 @section('content')
-<x-heading title="Cari Ruangan" description="Pilih jadwal dan jumlah peserta untuk melihat ruangan yang sesuai." />
+<x-heading title="Cari Ruangan" description="Pilih jadwal dan jumlah peserta untuk melihat ruangan yang sesuai.">
+    <a href="{{ route('monitoring.index') }}" class="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-accent hover:underline">
+        <x-icon name="clock-3" class="size-4" /> Lihat status ruangan
+    </a>
+</x-heading>
 <section class="panel grid gap-4 p-4 sm:p-6" aria-label="Jadwal dan kebutuhan">
     <x-room-search :filter="$filter" :facilities="$facilities" />
 </section>

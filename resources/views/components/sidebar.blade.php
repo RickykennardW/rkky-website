@@ -2,7 +2,7 @@
 @php
     $workspace = [
         ['dashboard', 'Beranda', 'layout-dashboard', ['dashboard']],
-        ['rooms.index', 'Cari Ruangan', 'building-2', ['rooms.*', 'scheduling.*', 'planner.*', 'bookings.create']],
+        ['rooms.index', 'Cari Ruangan', 'building-2', ['rooms.*', 'scheduling.*', 'planner.*', 'bookings.create', ...($account?->isAdmin() ? [] : ['monitoring.*'])]],
         ['bookings.index', 'Peminjaman Saya', 'calendar-days', ['bookings.index', 'bookings.show']],
         ['equipment.index', 'Peralatan', 'boxes', ['equipment.*']],
     ];

@@ -16,6 +16,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
@@ -53,11 +54,20 @@ class DemoController extends Controller
             return view('dashboard', ['user' => null]);
         }
 
-        $bookings = $this->demo->bookings($request);
+        $now = now();
+        $bookings = $this->demo->bookings($request)
+            ->filter(fn (Booking $booking) => $booking->user_id === $user->id && Str::isUuid($booking->id))
+            ->reverse()
+            ->sortBy(fn (Booking $booking) => match (true) {
+                $booking->status === 'approved' && $booking->starts_at <= $now && $booking->ends_at > $now => [0, $booking->starts_at->timestamp],
+                in_array($booking->status, ['approved', 'pending'], true) && $booking->starts_at > $now => [1, $booking->starts_at->timestamp],
+                default => [2, 0],
+            })
+            ->take(3)->values();
 
         return view('dashboard', [
-            'user' => $user, 'rooms' => $this->demo->rooms(),
-            'latestBooking' => $bookings->last(fn (Booking $booking) => $booking->id !== 'demo-active'),
+            'user' => $user,
+            'bookings' => $bookings,
         ]);
     }
 

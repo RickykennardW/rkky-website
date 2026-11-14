@@ -24,7 +24,9 @@ class PresentationTest extends TestCase
         $this->post('/login', ['role' => 'student'])->assertRedirect('/');
         Auth::forgetGuards();
 
-        $this->get('/')->assertOk()->assertSee('Demo Student');
+        $this->get('/')->assertOk()->assertSee('Demo Student')->assertSee('Peminjaman cepat')
+            ->assertSee('Kamu belum punya peminjaman.')->assertSee(route('bookings.create'))
+            ->assertDontSee('x-data="roomMonitoring"', false);
         $this->get('/rooms')->assertOk()->assertSee($room->name);
         $period = BookingPeriod::defaults();
         $this->get(route('rooms.index', [...Arr::except($period, 'end_date'), 'capacity' => 40]))
@@ -58,6 +60,7 @@ class PresentationTest extends TestCase
         $roomId = basename($roomResponse->headers->get('Location'));
         $equipmentId = basename($equipmentResponse->headers->get('Location'));
         $this->get('/bookings/'.$roomId)->assertOk()->assertSee('Menunggu Persetujuan');
+        $this->get('/')->assertOk()->assertSee(route('bookings.show', $roomId))->assertSee('Menunggu Persetujuan');
         $this->post('/admin/bookings/'.$roomId.'/review', ['decision' => 'approve'])->assertForbidden();
 
         $this->post('/login', ['role' => 'admin'])->assertRedirect('/admin');
@@ -70,6 +73,11 @@ class PresentationTest extends TestCase
         $this->get('/admin/bookings/'.$equipmentId)->assertOk()->assertSee('Reschedule the event')->assertSee('Ditolak');
         $this->getJson('/api/availability?'.http_build_query($period))
             ->assertOk()->assertJsonPath('rooms.'.$room->id, false);
+
+        $this->post('/login', ['role' => 'student'])->assertRedirect('/');
+        Auth::forgetGuards();
+        $this->get('/')->assertOk()->assertSee('Disetujui')->assertSee('Ditolak')
+            ->assertSee(route('bookings.show', $roomId))->assertSee(route('bookings.show', $equipmentId));
 
         $this->post('/logout')->assertRedirect('/');
         $this->post('/login', ['role' => 'student'])->assertRedirect('/');

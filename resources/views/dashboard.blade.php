@@ -2,52 +2,63 @@
 @section('title', 'Beranda')
 
 @section('content')
-<section class="relative isolate grid min-w-0 overflow-hidden rounded-2xl border border-[#2e415d] bg-[#131e31] md:min-h-76">
-    <img src="{{ asset('images/rooms/seminar.png') }}" alt="" fetchpriority="high" class="absolute inset-y-0 right-0 size-full object-cover object-center md:w-[68%] md:object-right">
-    <div aria-hidden="true" class="absolute inset-0 bg-linear-to-r from-[#111d31] via-[#111d31]/95 to-[#111d31]/50 md:via-[#111d31]/88 md:to-[#111d31]/10"></div>
-    <div class="relative grid max-w-145 content-center gap-4 px-5 py-9 sm:px-9 sm:py-12">
-        <h1 class="text-[clamp(2rem,4.5vw,3.3rem)] leading-[1.08] font-semibold tracking-[-0.055em] text-white">Cari ruangan untuk kegiatanmu</h1>
-        <p class="max-w-sm text-sm leading-relaxed text-[#d3dfef] sm:text-base">Temukan ruangan yang tersedia dan ajukan peminjaman dengan mudah.</p>
-        <div class="mt-1 flex flex-wrap items-center gap-x-5 gap-y-2">
-            @if($user)
-                <a href="#cari-ruangan" class="button button-primary">Cari Ruangan <x-icon name="arrow-right" class="size-4" /></a>
-                <a href="{{ route('bookings.index') }}" class="inline-flex min-h-11 items-center text-sm font-medium text-white hover:underline">Lihat Peminjaman Saya</a>
-            @else
-                <a href="{{ route('login') }}" class="button button-primary">{{ config('campusspace.demo') ? 'Mulai demo' : 'Masuk' }} <x-icon name="arrow-right" class="size-4" /></a>
-                @unless(config('campusspace.demo'))
-                    <a href="{{ route('register') }}" class="inline-flex min-h-11 items-center text-sm font-medium text-white hover:underline">Daftar akun</a>
-                @endunless
-            @endif
-        </div>
+<section class="panel flex min-w-0 flex-col gap-5 border-brand/20 bg-linear-to-br from-brand/10 to-panel p-5 sm:flex-row sm:items-center sm:justify-between sm:p-6" aria-labelledby="dashboard-welcome">
+    <div class="grid min-w-0 gap-2">
+        <h1 id="dashboard-welcome" class="page-title break-words">
+            @if($user)Halo, {{ Str::of($user->profile->full_name)->trim()->before(' ') }}!@else Cari ruangan untuk kegiatanmu @endif
+        </h1>
+        <p class="muted">Cari ruangan dan peralatan kampus untuk kegiatanmu.</p>
+    </div>
+    <div class="flex flex-wrap items-center gap-3">
+        @if($user)
+            <a class="button button-primary" href="{{ route('rooms.index') }}">Cari Ruangan <x-icon name="arrow-right" class="size-4" /></a>
+        @else
+            <a class="button button-primary" href="{{ route('login') }}">{{ config('campusspace.demo') ? 'Mulai demo' : 'Masuk' }} <x-icon name="arrow-right" class="size-4" /></a>
+            @unless(config('campusspace.demo'))
+                <a class="button button-ghost" href="{{ route('register') }}">Daftar akun</a>
+            @endunless
+        @endif
     </div>
 </section>
 @if($user)
-    <section id="cari-ruangan" aria-labelledby="search-title" class="panel grid min-w-0 scroll-mt-4 gap-4 p-4 sm:p-6">
-        <div class="flex items-baseline justify-between gap-3">
-            <h2 id="search-title" class="section-title">Pilih jadwal</h2>
-            <span class="text-xs text-muted">Waktu WIB</span>
-        </div>
-        <x-room-search />
-    </section>
-    <section class="grid min-w-0 gap-3" aria-labelledby="dashboard-rooms" x-data="roomMonitoring" data-url="{{ route('monitoring.snapshot') }}">
-        <div class="flex flex-wrap items-end justify-between gap-x-4 gap-y-1">
-            <div>
-                <h2 id="dashboard-rooms" class="section-title">Ruangan kampus</h2>
-                <p class="muted mt-1" x-text="snapshot && !error ? snapshot.summary.available + ' ruangan tersedia sekarang' : 'Cek jadwal untuk memastikan ruangan tersedia.'">Cek jadwal untuk memastikan ruangan tersedia.</p>
+    <section class="panel flex min-w-0 flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5" aria-labelledby="quick-booking">
+        <div class="flex min-w-0 items-center gap-3">
+            <span class="grid size-10 shrink-0 place-items-center rounded-lg bg-brand/10 text-accent">
+                <x-icon name="calendar-plus" class="size-5" />
+            </span>
+            <div class="grid gap-1">
+                <h2 id="quick-booking" class="section-title">Peminjaman cepat</h2>
+                <p class="muted">Sudah tahu yang ingin dipinjam? Langsung isi pengajuan.</p>
             </div>
-            <a href="{{ route('monitoring.index') }}" class="inline-flex min-h-11 items-center gap-2 text-sm font-semibold text-accent hover:underline">Lihat status ruangan <x-icon name="arrow-right" class="size-4" /></a>
         </div>
-        @if($rooms->isNotEmpty())
-            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">@foreach($rooms as $room)<x-room-card :room="$room" live />@endforeach</div>
+        <a class="button button-secondary self-start sm:self-auto" href="{{ route('bookings.create') }}">Ajukan Peminjaman <x-icon name="arrow-right" class="size-4" /></a>
+    </section>
+    <section class="grid min-w-0 gap-3" aria-labelledby="dashboard-bookings">
+        <div class="flex min-w-0 flex-wrap items-baseline justify-between gap-x-5">
+            <h2 id="dashboard-bookings" class="section-title">Peminjaman Saya</h2>
+            <a class="inline-flex min-h-11 items-center gap-2 text-sm font-medium text-accent hover:underline" href="{{ route('bookings.index') }}">Lihat Semua Peminjaman <x-icon name="arrow-right" class="size-4" /></a>
+        </div>
+        @if($bookings->isEmpty())
+            <div class="panel flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
+                <p class="muted">Kamu belum punya peminjaman.</p>
+                <a class="button button-ghost" href="{{ route('rooms.index') }}">Cari Ruangan</a>
+            </div>
         @else
-            <p class="muted panel p-5">Belum ada ruangan di katalog.</p>
+            <ul class="panel divide-y divide-line">
+                @foreach($bookings as $booking)
+                    <li>
+                        <a class="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 rounded-lg p-4 hover:bg-raised sm:flex sm:gap-4 sm:px-5" href="{{ route('bookings.show', $booking) }}">
+                            <span class="col-span-2 grid min-w-0 flex-1 gap-1">
+                                <span class="break-words text-sm font-semibold">{{ $booking->room?->name ?? 'Peminjaman peralatan' }}</span>
+                                <span class="text-xs leading-relaxed text-muted">{{ $booking->period_label }}</span>
+                            </span>
+                            <x-status :status="$booking->status" class="w-fit" />
+                            <span class="inline-flex min-h-8 items-center gap-1.5 text-sm font-medium text-accent">Lihat detail <x-icon name="chevron-right" class="size-4" /></span>
+                        </a>
+                    </li>
+                @endforeach
+            </ul>
         @endif
     </section>
-    @if($latestBooking)
-        <section class="grid gap-3" aria-labelledby="latest-booking">
-            <h2 id="latest-booking" class="section-title">Peminjaman terakhir</h2>
-            <x-booking-list :bookings="[$latestBooking]" />
-        </section>
-    @endif
 @endif
 @endsection
