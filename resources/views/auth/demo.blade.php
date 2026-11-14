@@ -1,22 +1,22 @@
 @extends('layouts.shell')
-@section('title', 'Choose demo role')
+@section('title', 'Masuk Demo')
 
 @section('content')
-<x-heading title="Choose demo role" description="Explore CampusSpace with fictional campus data. Requests stay in this browser session." />
-<div class="grid gap-4 sm:grid-cols-2">
-    <form class="panel grid gap-4 p-5" method="post" action="{{ route('login') }}">
+<x-heading title="Masuk Demo" description="Pilih peran untuk mencoba CampusSpace. Peminjaman demo disimpan di sesi browser ini." />
+<div class="grid max-w-4xl gap-4 sm:grid-cols-2">
+    <form class="panel grid gap-3 p-5 sm:p-6" method="post" action="{{ route('login') }}">
         @csrf
         <input type="hidden" name="role" value="student">
-        <h2 class="section-title">Student</h2>
-        <p class="muted">Browse rooms, plan an event, and request a reservation.</p>
-        <button class="button button-primary justify-self-start">Enter student demo</button>
+        <h2 class="section-title">Mahasiswa</h2>
+        <p class="muted">Cari ruangan dan ajukan peminjaman.</p>
+        <button class="button button-primary mt-2 justify-self-start">Masuk sebagai mahasiswa <x-icon name="arrow-right" class="size-4" /></button>
     </form>
-    <form class="panel grid gap-4 p-5" method="post" action="{{ route('login') }}">
+    <form class="panel grid gap-3 p-5 sm:p-6" method="post" action="{{ route('login') }}">
         @csrf
         <input type="hidden" name="role" value="admin">
-        <h2 class="section-title">Administrator</h2>
-        <p class="muted">Review simulated bookings created in this browser.</p>
-        <button class="button button-secondary justify-self-start">Enter admin demo</button>
+        <h2 class="section-title">Admin</h2>
+        <p class="muted">Tinjau pengajuan dan pantau ruangan.</p>
+        <button class="button button-secondary mt-2 justify-self-start">Masuk sebagai admin <x-icon name="arrow-right" class="size-4" /></button>
     </form>
 </div>
 @endsection

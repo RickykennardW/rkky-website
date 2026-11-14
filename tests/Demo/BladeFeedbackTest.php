@@ -13,7 +13,7 @@ class BladeFeedbackTest extends TestCase
     {
         $this->assertNull(View::shared('errors'));
 
-        $this->get('/missing-campusspace-route')->assertNotFound()->assertSee('Page not found');
+        $this->get('/missing-campusspace-route')->assertNotFound()->assertSee('Halaman tidak ditemukan');
 
         $this->assertNull(View::shared('errors'));
     }

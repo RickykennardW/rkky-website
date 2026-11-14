@@ -35,8 +35,8 @@ class SchedulingMonitoringTest extends TestCase
             'end_date' => $day->toDateString(), 'start' => '13:00', 'end' => '15:00',
         ];
         $response = $this->actingAs($student)->post(route('scheduling.check'), $input)
-            ->assertOk()->assertSee('An approved reservation overlaps this time.')
-            ->assertSee('Capacity 36 is below the requested 42 people.')->assertSee('Missing facilities');
+            ->assertOk()->assertSee('Ruangan sudah digunakan pada jam tersebut.')
+            ->assertSee('Kapasitas 36 orang kurang untuk 42 orang.')->assertSee('Fasilitas tidak tersedia');
         $result = $response->viewData('result');
         $this->assertSame($alternative->id, $result['sameTime']->first()['room']->id);
         $this->assertSame('15:00', $result['preferredTimes']->first()['period']->startsAt->format('H:i'));
@@ -44,7 +44,7 @@ class SchedulingMonitoringTest extends TestCase
 
         DB::table('booking_equipment')->insert(['booking_id' => $approved->id, 'equipment_id' => $projector->id, 'quantity' => 5]);
         $this->post(route('scheduling.check'), [...$input, 'quantities' => [$projector->id => 1]])
-            ->assertOk()->assertSee('0 available, 1 requested');
+            ->assertOk()->assertSee('0 tersedia, 1 diminta');
     }
 
     public function test_missing_required_facility_is_rechecked_at_request_and_approval(): void
@@ -89,7 +89,7 @@ class SchedulingMonitoringTest extends TestCase
         $response = $this->actingAs($student)->getJson(route('monitoring.snapshot'))->assertOk()
             ->assertJsonPath('timezone', 'Asia/Jakarta')->assertJsonPath('server_time', $now->getTimestampMs())
             ->assertJsonPath('summary.in_use', 1)->assertJsonPath('summary.upcoming', 1)
-            ->assertDontSee('Private research group')->assertDontSee($owner->email)->assertDontSee('Expired workshop');
+            ->assertDontSee('Private research group')->assertDontSee($owner->email)->assertDontSee('Expired workshop')->assertDontSee('/admin/bookings/');
         $cards = collect($response->json('rooms'))->keyBy('id');
         $this->assertSame('in use', $cards[$room->id]['status']);
         $this->assertSame($now->getTimestampMs(), $cards[$room->id]['current']['start']);

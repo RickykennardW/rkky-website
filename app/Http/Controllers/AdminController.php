@@ -12,7 +12,6 @@ use App\Services\Inventory;
 use App\Services\RoomGeometry;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\View\View;
 
 class AdminController extends Controller
@@ -20,19 +19,18 @@ class AdminController extends Controller
     public function dashboard(): View
     {
         $pending = Booking::query()->where('status', 'pending');
-        $upcoming = Booking::query()->whereNotNull('room_id')->whereIn('status', ['approved', 'completed'])->where('ends_at', '>', now());
+        $today = now(config('campusspace.timezone'))->startOfDay()->toImmutable();
+        $loans = EquipmentLoan::query()->whereNull('returned_at');
 
         return view('admin.dashboard', [
             'pendingCount' => (clone $pending)->count(),
-            'approvedCount' => Booking::query()->where('status', 'approved')->count(),
-            'activeLoans' => EquipmentLoan::query()->whereNull('returned_at')->count(),
+            'activeLoans' => (clone $loans)->count(),
+            'overdue' => $loans->whereHas('booking', fn ($query) => $query->where('ends_at', '<=', now()->toIso8601String()))->count(),
             'losses' => EquipmentLoan::query()->where('allocation_warning', true)->count(),
-            'activeRooms' => Room::query()->where('active', true)->count(),
-            'roomCount' => Room::query()->count(),
-            'equipmentCount' => Equipment::query()->count(),
-            'usable' => Equipment::query()->where('status', 'available')->sum(DB::raw('total_quantity - unusable_quantity')),
             'pending' => $pending->with(['profile', 'room'])->orderBy('starts_at')->orderBy('id')->limit(5)->get(),
-            'upcoming' => $upcoming->with(['profile', 'room'])->orderBy('starts_at')->orderBy('id')->limit(5)->get(),
+            'todayBookings' => Booking::query()->whereIn('status', ['approved', 'completed'])
+                ->where('starts_at', '<', $today->addDay()->toIso8601String())->where('ends_at', '>', $today->toIso8601String())
+                ->with(['profile', 'room'])->orderBy('starts_at')->orderBy('id')->limit(8)->get(),
         ]);
     }
 

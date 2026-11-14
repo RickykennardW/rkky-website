@@ -18,14 +18,14 @@ class SchedulingRules
     {
         $issues = [];
         if (! $room->active) {
-            $issues[] = 'Room unavailable for booking.';
+            $issues[] = 'Ruangan tidak tersedia untuk dipinjam.';
         }
         if ($room->capacity < $attendance) {
-            $issues[] = "Capacity {$room->capacity} is below the requested {$attendance} people.";
+            $issues[] = "Kapasitas {$room->capacity} orang kurang untuk {$attendance} orang.";
         }
         $missing = array_diff($facilities, $room->facilities->pluck('facility')->all());
         if ($missing !== []) {
-            $issues[] = 'Missing facilities · '.implode(', ', $missing).'.';
+            $issues[] = 'Fasilitas tidak tersedia · '.implode(', ', array_map(fn ($name) => __('campusspace.facilities.'.$name), $missing)).'.';
         }
 
         return $issues;
@@ -43,11 +43,19 @@ class SchedulingRules
     {
         foreach (array_keys($quantities) as $id) {
             if (! is_string($id) || ! Str::isUuid($id)) {
-                throw ValidationException::withMessages(['quantities' => 'Choose equipment from the catalog.']);
+                throw ValidationException::withMessages(['quantities' => 'Pilih peralatan dari katalog.']);
             }
         }
 
         return array_filter(array_map('intval', $quantities));
+    }
+
+    public static function equipmentRules(): array
+    {
+        return [
+            'quantities' => ['nullable', 'array', 'max:100'],
+            'quantities.*' => ['required', 'integer', 'between:0,10000'],
+        ];
     }
 
     public static function equipmentIssues(array $requested, array $remaining, array $names): array
@@ -56,7 +64,7 @@ class SchedulingRules
         foreach ($requested as $id => $quantity) {
             $available = $remaining[$id] ?? 0;
             if ($available < $quantity) {
-                $issues[] = ($names[$id] ?? 'Selected equipment')." · {$available} available, {$quantity} requested.";
+                $issues[] = ($names[$id] ?? 'Peralatan pilihan')." · {$available} tersedia, {$quantity} diminta.";
             }
         }
 

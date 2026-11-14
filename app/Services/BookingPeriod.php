@@ -29,8 +29,8 @@ final readonly class BookingPeriod
 
         if ($end <= $start || ($future && $start <= now())) {
             throw ValidationException::withMessages(['date' => $future
-                ? 'Choose a future start and an end after it.'
-                : 'The end time must be after the start time.']);
+                ? 'Pilih waktu mulai yang belum lewat dan waktu selesai setelahnya.'
+                : 'Waktu selesai harus setelah waktu mulai.']);
         }
 
         return new self($start, $end);

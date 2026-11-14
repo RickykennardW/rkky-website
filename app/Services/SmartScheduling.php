@@ -18,8 +18,7 @@ class SmartScheduling
             'participants' => [$presence, 'integer', 'between:1,500'],
             'committee' => [$presence, 'integer', 'between:0,500'],
             'arrangement' => ['nullable', Rule::in(SmartRoomPlanner::ARRANGEMENTS)],
-            'quantities' => ['nullable', 'array', 'max:100'],
-            'quantities.*' => ['required', 'integer', 'between:0,10000'],
+            ...SchedulingRules::equipmentRules(),
             ...SchedulingRules::facilityRules(),
         ];
     }
@@ -65,7 +64,7 @@ class SmartScheduling
             foreach ($rooms as $room) {
                 $issues = $roomIssues[$room->id];
                 if ($room->active && ! ($state['rooms'][$room->id] ?? false)) {
-                    $issues[] = 'An approved reservation overlaps this time.';
+                    $issues[] = 'Ruangan sudah digunakan pada jam tersebut.';
                 }
                 $issues = [...$issues, ...$equipmentIssues];
                 if ($offset === 0) {
@@ -76,10 +75,10 @@ class SmartScheduling
                         'room' => $room, 'period' => $period, 'offset' => $offset,
                         'fit' => $room->capacity - $attendance,
                         'reasons' => array_values(array_filter([
-                            "Fits {$attendance} people in {$room->capacity} places.",
-                            $facilities ? 'Has '.implode(', ', $facilities).'.' : null,
-                            $quantities ? 'Requested equipment is available.' : null,
-                            $plan ? 'The selected seating layout fits.' : null,
+                            "Kapasitas {$room->capacity} orang cukup untuk {$attendance} orang.",
+                            $facilities ? 'Fasilitas sesuai kebutuhan.' : null,
+                            $quantities ? 'Peralatan yang diminta tersedia.' : null,
+                            $plan ? 'Susunan kursi yang dipilih muat.' : null,
                         ])),
                         'booking' => array_filter([
                             'room' => $room->id,

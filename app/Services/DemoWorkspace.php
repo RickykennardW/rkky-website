@@ -213,7 +213,7 @@ class DemoWorkspace
                 throw ValidationException::withMessages(['room_id' => $issues]);
             }
             if (! ($available['rooms'][$row['room_id']] ?? false)) {
-                throw ValidationException::withMessages(['room_id' => 'This room is already reserved for that period.']);
+                throw ValidationException::withMessages(['room_id' => 'Ruangan sudah digunakan pada jam tersebut.']);
             }
         }
         $issues = SchedulingRules::equipmentIssues($row['quantities'], $available['equipment'], $this->equipment()->pluck('name', 'id')->all());

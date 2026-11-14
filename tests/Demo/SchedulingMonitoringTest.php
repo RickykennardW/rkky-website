@@ -13,18 +13,20 @@ class SchedulingMonitoringTest extends TestCase
         $this->assertSame([], config('database.connections'));
         $this->post('/login', ['role' => 'student'])->assertRedirect('/');
         Auth::forgetGuards();
-        $this->get('/')->assertOk()->assertSee('Live Room Monitoring');
+        $this->get('/')->assertOk()->assertSee('Lihat status ruangan');
         $example = $this->get('/smart-scheduling?example=1')->assertOk()->viewData('fields');
         $result = $this->post('/smart-scheduling', [...$example, 'action' => 'check'])->assertOk()
-            ->assertSee('An approved reservation overlaps this time.')->assertSee('Other times for your preferred room')
+            ->assertSee('Ruangan sudah digunakan pada jam tersebut.')->assertSee('Jam lain untuk ruangan pilihan')
             ->viewData('result');
         $this->assertSame('Multipurpose Hall C', $result['sameTime']->first()['room']->name);
         $booking = $result['sameTime']->first()['booking'];
-        $this->get(route('bookings.create', $booking))->assertOk()->assertSee('Required room facilities')->assertSee('value="40"', false);
+        $this->get(route('bookings.create', $booking))->assertOk()->assertSee('Fasilitas yang diperlukan')->assertSee('value="40"', false);
+        $this->get(route('scheduling.index', [...$example, 'alternatives' => 1]))
+            ->assertOk()->assertSee('Jam lain untuk ruangan pilihan')->assertSee('Ruangan sudah digunakan pada jam tersebut.');
 
         $fields = $this->post('/smart-scheduling', [
             'action' => 'interpret', 'request_text' => '40 people tomorrow from 13.00 to 15.00 with a projector',
-        ])->assertOk()->assertSee('Review the interpreted details')->viewData('fields');
+        ])->assertOk()->assertSee('Periksa jadwal dan lengkapi kebutuhanmu')->viewData('fields');
         $projector = app(DemoWorkspace::class)->equipment()->firstWhere('name', 'Portable Projector');
         $this->assertSame([$projector->id => 1], $fields['quantities']);
         $this->assertSame('13:00', $fields['start']);
@@ -58,6 +60,6 @@ class SchedulingMonitoringTest extends TestCase
         Auth::forgetGuards();
         $this->post("/admin/bookings/{$first}/review", ['decision' => 'approve'])->assertSessionHasNoErrors();
         $this->post("/admin/bookings/{$second}/review", ['decision' => 'approve'])->assertSessionHasErrors('room_id');
-        $this->get("/admin/bookings/{$second}")->assertOk()->assertSee('pending');
+        $this->get("/admin/bookings/{$second}")->assertOk()->assertSee('Menunggu Persetujuan');
     }
 }

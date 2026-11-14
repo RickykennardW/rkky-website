@@ -96,7 +96,7 @@ class BookingController extends Controller
 
         $id = $this->reservations->reserve($request->user(), $data, $period, $items, $plan);
 
-        return redirect()->route('bookings.show', $id)->with('status', 'Reservation request submitted for review.');
+        return redirect()->route('bookings.show', $id)->with('status', 'Pengajuan terkirim. Kamu dapat melacak statusnya di Peminjaman Saya.');
     }
 
     public function show(Booking $booking): View
@@ -117,7 +117,7 @@ class BookingController extends Controller
     {
         $this->reservations->cancel($request->user(), $booking);
 
-        return back()->with('status', 'Request cancelled.');
+        return back()->with('status', 'Pengajuan dibatalkan.');
     }
 
     public function review(ReviewBookingRequest $request, Booking $booking): RedirectResponse
@@ -125,7 +125,7 @@ class BookingController extends Controller
         $approved = $request->validated('decision') === 'approve';
         $this->reservations->review($request->user(), $booking, $approved, $request->validated('reason'));
 
-        return back()->with('status', $approved ? 'Booking approved and resources allocated.' : 'Booking rejected.');
+        return back()->with('status', $approved ? 'Pengajuan disetujui.' : 'Pengajuan ditolak.');
     }
 
     public function pickup(Request $request, Booking $booking): RedirectResponse

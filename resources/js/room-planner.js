@@ -13,7 +13,7 @@ function addElement(svg, tag, attributes, label = null) {
   svg.append(node);
 }
 
-function draw(svg, result) {
+export function drawRoomPlan(svg, result) {
   svg.replaceChildren();
   if (!result?.layout) return;
 
@@ -67,7 +67,7 @@ export function roomPlanner() {
 
     init() {
       this.result = JSON.parse(this.$root.dataset.initial);
-      this.$nextTick(() => draw(this.$refs.drawing, this.result));
+      this.$nextTick(() => drawRoomPlan(this.$refs.drawing, this.result));
     },
 
     dimensions() {
@@ -106,7 +106,7 @@ export function roomPlanner() {
         if (version !== this.requestVersion) return;
 
         this.result = data;
-        draw(this.$refs.drawing, this.result);
+        drawRoomPlan(this.$refs.drawing, this.result);
       } catch (error) {
         if (version !== this.requestVersion) return;
         this.error = error.name === "TimeoutError" ? "The planner request timed out. Try again." : error.message;

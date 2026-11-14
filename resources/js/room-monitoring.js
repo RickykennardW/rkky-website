@@ -47,14 +47,14 @@ export function roomMonitoring() {
         }
         const received = performance.now();
         this.anchor = received - (received - started) / 2;
-        this.clockFormat = new Intl.DateTimeFormat("en-GB", {
+        this.clockFormat = new Intl.DateTimeFormat("id-ID", {
           timeZone: snapshot.timezone, day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
         });
         this.snapshot = snapshot;
         this.error = "";
         this.time = snapshot.server_time + received - this.anchor;
       } catch {
-        this.error = "Room status could not be refreshed. Retrying automatically.";
+        this.error = "Status ruangan belum dapat diperbarui. Kami akan mencoba lagi.";
       } finally {
         clearTimeout(timeout);
         this.controller = null;
@@ -81,8 +81,8 @@ export function roomMonitoring() {
     },
 
     statusLabel(room) {
-      if (this.crossedBoundary(room)) return "Checking…";
-      return { "in use": "In Use", available: "Available", upcoming: "Upcoming", unavailable: "Unavailable" }[room.status];
+      if (this.crossedBoundary(room)) return "Memeriksa…";
+      return { "in use": "Sedang Digunakan", available: "Tersedia", upcoming: "Segera Digunakan", unavailable: "Tidak Tersedia" }[room.status];
     },
 
     badgeClass(room) {
@@ -101,6 +101,10 @@ export function roomMonitoring() {
 
     windowLabel(period) {
       return this.clockFormat.formatRange(new Date(period.start), new Date(period.end)) + " WIB";
+    },
+
+    timeLabel(timestamp) {
+      return this.clockFormat.format(new Date(timestamp)) + " WIB";
     },
   };
 }

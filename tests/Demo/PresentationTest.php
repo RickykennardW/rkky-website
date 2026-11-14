@@ -6,6 +6,7 @@ use App\Services\BookingPeriod;
 use App\Services\DemoWorkspace;
 use App\Services\SmartRoomPlanner;
 use Illuminate\Foundation\Testing\TestCase;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
 
 class PresentationTest extends TestCase
@@ -17,17 +18,21 @@ class PresentationTest extends TestCase
         $this->assertSame([], config('campusspace.legacy_auth'));
         $room = app(DemoWorkspace::class)->rooms()->first();
 
-        $this->get('/')->assertOk()->assertSee('Demo Mode');
-        $this->get('/login')->assertOk()->assertSee('Enter student demo');
+        $this->get('/')->assertOk()->assertSee('Mode demo');
+        $this->get('/login')->assertOk()->assertSee('Masuk sebagai mahasiswa');
         $this->get('/admin')->assertRedirect(route('login'));
         $this->post('/login', ['role' => 'student'])->assertRedirect('/');
         Auth::forgetGuards();
 
         $this->get('/')->assertOk()->assertSee('Demo Student');
         $this->get('/rooms')->assertOk()->assertSee($room->name);
-        $this->get(route('rooms.show', $room))->assertOk()->assertSee('Room calendar')->assertSee('13:00–15:00');
+        $period = BookingPeriod::defaults();
+        $this->get(route('rooms.index', [...Arr::except($period, 'end_date'), 'capacity' => 40]))
+            ->assertOk()->assertSee('2 ruangan tersedia')->assertDontSee('Classroom B')
+            ->assertSee(route('bookings.create', ['room' => $room->id, ...$period, 'participants' => 40, 'committee' => 0]));
+        $this->get(route('rooms.show', $room))->assertOk()->assertSee('Kalender ruangan')->assertSee('13:00–15:00');
         $this->get('/equipment')->assertOk()->assertSee('Portable Projector');
-        $this->get('/planner')->assertOk()->assertSee('Smart Room Planner');
+        $this->get('/planner')->assertOk()->assertSee('Bantu Atur Ruangan');
         $this->postJson('/planner/preview', [...SmartRoomPlanner::DEFAULTS, 'room_id' => $room->id])
             ->assertOk()->assertJsonStructure(['plan' => ['chairs', 'tables', 'projectors']]);
         $this->get('/admin')->assertForbidden();
@@ -46,21 +51,23 @@ class PresentationTest extends TestCase
         $this->getJson('/api/availability?'.http_build_query($period))
             ->assertOk()->assertJsonPath('rooms.'.$room->id, true);
         $details = [...$period, 'description' => 'Presentation simulation', 'participants' => 20, 'committee' => 2];
-        $roomResponse = $this->post('/bookings', [...$details, 'title' => 'Demo room request', 'room_id' => $room->id])->assertRedirect();
+        $roomResponse = $this->post('/bookings', [
+            ...Arr::except($details, 'end_date'), 'title' => 'Demo room request', 'room_id' => $room->id,
+        ])->assertRedirect();
         $equipmentResponse = $this->post('/bookings', [...$details, 'title' => 'Demo equipment request', 'quantities' => [$item->id => 2]])->assertRedirect();
         $roomId = basename($roomResponse->headers->get('Location'));
         $equipmentId = basename($equipmentResponse->headers->get('Location'));
-        $this->get('/bookings/'.$roomId)->assertOk()->assertSee('pending');
+        $this->get('/bookings/'.$roomId)->assertOk()->assertSee('Menunggu Persetujuan');
         $this->post('/admin/bookings/'.$roomId.'/review', ['decision' => 'approve'])->assertForbidden();
 
         $this->post('/login', ['role' => 'admin'])->assertRedirect('/admin');
         Auth::forgetGuards();
         $this->get('/admin')->assertOk()->assertSee('Demo room request');
-        $this->get('/admin/bookings/'.$roomId)->assertOk()->assertSee('Approve request');
+        $this->get('/admin/bookings/'.$roomId)->assertOk()->assertSee('Setujui pengajuan');
         $this->post('/admin/bookings/'.$roomId.'/review', ['decision' => 'approve'])->assertRedirect();
         $this->post('/admin/bookings/'.$equipmentId.'/review', ['decision' => 'reject', 'reason' => 'Reschedule the event'])->assertRedirect();
-        $this->get('/admin/bookings/'.$roomId)->assertOk()->assertSee('approved');
-        $this->get('/admin/bookings/'.$equipmentId)->assertOk()->assertSee('Reschedule the event')->assertSee('rejected');
+        $this->get('/admin/bookings/'.$roomId)->assertOk()->assertSee('Disetujui');
+        $this->get('/admin/bookings/'.$equipmentId)->assertOk()->assertSee('Reschedule the event')->assertSee('Ditolak');
         $this->getJson('/api/availability?'.http_build_query($period))
             ->assertOk()->assertJsonPath('rooms.'.$room->id, false);
 

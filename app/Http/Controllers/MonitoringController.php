@@ -28,7 +28,7 @@ class MonitoringController extends Controller
         } else {
             $rooms = Room::query()->orderBy('name')->get(['id', 'name', 'location', 'capacity', 'active']);
             $bookings = Booking::query()->whereNotNull('room_id')->where('status', 'approved')->where('ends_at', '>', $now->toIso8601String())
-                ->get(['room_id', 'status', 'starts_at', 'ends_at', ...($admin ? ['title'] : [])]);
+                ->get(['room_id', 'status', 'starts_at', 'ends_at', ...($admin ? ['id', 'title'] : [])]);
         }
 
         return response()->json($monitor->snapshot($rooms, $bookings, $now, $admin))
@@ -40,6 +40,6 @@ class MonitoringController extends Controller
         abort_unless(config('campusspace.demo'), 404);
         $demo->loadActiveSample($request);
 
-        return redirect()->route('monitoring.index')->with('status', 'In-progress sample loaded for this demo session.');
+        return redirect()->route('monitoring.index')->with('status', 'Contoh ruangan yang sedang digunakan sudah ditampilkan.');
     }
 }

@@ -13,7 +13,7 @@
   --color-ink: #f3f6fa;
   --color-muted: #9caabc;
   --color-accent: #77a1f5;
-  --color-brand: #719af2;
+  --color-brand: #90b1ff;
   --color-teal: #79cbc3;
   --color-positive: #83d5ad;
   --color-warning: #edc080;
@@ -34,8 +34,8 @@ input[type=checkbox] { accent-color: var(--color-brand); }
 
 @layer components {
   .panel { @apply min-w-0 rounded-xl border border-line bg-panel; }
-  .button { @apply inline-flex min-h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-transparent px-4 py-2 text-sm font-semibold transition-colors; }
-  .button-primary { @apply bg-brand text-[#091425] hover:bg-[#91b1ff]; }
+  .button { @apply inline-flex min-h-11 max-w-full shrink-0 items-center justify-center gap-2 rounded-lg border border-transparent px-4 py-2 text-center text-sm font-semibold transition-colors; }
+  .button-primary { @apply bg-brand text-[#091425] hover:bg-[#adc5ff]; }
   .button-secondary { @apply border-[#354254] bg-raised text-ink hover:bg-[#243140]; }
   .button-ghost { @apply border-line bg-transparent text-muted hover:bg-raised hover:text-ink; }
   .button-danger { @apply border-[#623c46] bg-[#39242b] text-negative hover:bg-[#4b2b34]; }

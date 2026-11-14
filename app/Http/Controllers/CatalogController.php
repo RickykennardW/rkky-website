@@ -6,6 +6,8 @@ use App\Models\Equipment;
 use App\Models\Room;
 use App\Services\Availability;
 use App\Services\BookingPeriod;
+use App\Services\SchedulingRules;
+use App\Services\SmartScheduling;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,11 +21,19 @@ class CatalogController extends Controller
     public function rooms(Request $request): View
     {
         [$filter, $period] = $this->filters($request, [
-            'capacity' => ['nullable', 'integer', 'between:1,500'],
+            'capacity' => ['nullable', 'integer', 'between:1,1000'],
+            'committee' => ['nullable', 'integer', 'between:0,500'],
+            ...SchedulingRules::equipmentRules(),
             'facility' => ['nullable', 'array', 'max:6'],
             'facility.*' => ['required', Rule::in(Room::FACILITIES), 'distinct'],
         ]);
-        $available = $period ? $this->availability->resources($request->user(), $period)['rooms'] : null;
+        $resources = $period ? $this->availability->resources($request->user(), $period) : null;
+        $available = $resources['rooms'] ?? null;
+        if ($available !== null && SchedulingRules::equipmentIssues(
+            SchedulingRules::equipmentSelection($filter['quantities'] ?? []), $resources['equipment'], [],
+        )) {
+            $available = [];
+        }
         $query = Room::query()->with('facilities')->where('active', true)->orderBy('name')->orderBy('id');
 
         if (isset($filter['capacity'])) {
@@ -46,7 +56,9 @@ class CatalogController extends Controller
 
     public function room(Request $request, Room $room): View
     {
-        $filter = $request->validate(['week' => ['nullable', 'date_format:Y-m-d'], ...BookingPeriod::rules(false)]);
+        $filter = $request->validate([
+            'week' => ['nullable', 'date_format:Y-m-d'], ...BookingPeriod::rules(false), ...SmartScheduling::inputRules(false),
+        ]);
         $timezone = config('campusspace.timezone');
         $week = isset($filter['week'])
             ? CarbonImmutable::createFromFormat('!Y-m-d', $filter['week'], $timezone)
@@ -99,6 +111,9 @@ class CatalogController extends Controller
     {
         if ($request->filled('endDate') && ! $request->filled('end_date')) {
             $request->merge(['end_date' => $request->input('endDate')]);
+        }
+        if ($request->filled(['date', 'start', 'end']) && ! $request->filled('end_date')) {
+            $request->merge(['end_date' => $request->input('date')]);
         }
 
         $hasPeriod = $requirePeriod || $request->anyFilled(['date', 'start', 'end_date', 'end']);

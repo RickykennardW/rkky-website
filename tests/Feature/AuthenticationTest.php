@@ -19,9 +19,9 @@ class AuthenticationTest extends TestCase
 
     public function test_guest_home_and_auth_forms_respond_and_workspace_requires_login(): void
     {
-        $this->get('/')->assertOk()->assertSee('data-app="campusspace"', false)->assertSee('Book a campus room');
-        $this->get('/login')->assertOk()->assertSee('Sign in');
-        $this->get('/register')->assertOk()->assertSee('Create your account');
+        $this->get('/')->assertOk()->assertSee('data-app="campusspace"', false)->assertSee('Cari ruangan untuk kegiatanmu');
+        $this->get('/login')->assertOk()->assertSee('Masuk');
+        $this->get('/register')->assertOk()->assertSee('Daftar akun');
         $this->get('/rooms')->assertRedirect(route('login'));
         $this->getJson('/api/availability')->assertUnauthorized();
     }

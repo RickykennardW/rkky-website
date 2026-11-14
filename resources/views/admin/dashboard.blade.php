@@ -1,25 +1,39 @@
 @extends('layouts.shell')
-@section('title', 'Admin overview')
+@section('title', 'Beranda Admin')
 
 @section('content')
-<x-heading title="Admin overview" description="Review requests, track room usage, and manage campus inventory.">
-    <a href="{{ route('admin.bookings.index', ['status' => 'pending']) }}" class="button button-primary">Review requests <x-icon name="arrow-right" class="size-4" /></a>
-</x-heading>
-<div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-    <x-stat icon="clock-3" label="Pending requests" :count="$pendingCount" detail="Awaiting a decision" />
-    <x-stat icon="calendar-check" label="Approved reservations" :count="$approvedCount" detail="Current approved requests" />
-    <x-stat icon="package-check" label="Active equipment loans" :count="$activeLoans" detail="Item lines awaiting return" />
-    <x-stat icon="building-2" label="Rooms in service" :count="$activeRooms" :detail="$roomCount.' rooms in the catalog'" />
-</div>
-@if($losses > 0)
-    <x-notice>{{ $losses }} return {{ Str::plural('record', $losses) }} flagged a stock loss affecting approved allocations. <a href="{{ route('admin.equipment.index') }}" class="underline">Review inventory</a>.</x-notice>
-@endif
-<section class="panel flex flex-wrap items-center justify-between gap-3 p-5">
-    <div><h2 class="section-title">Inventory summary</h2><p class="muted mt-1">{{ $equipmentCount }} equipment types · {{ $usable }} usable units across available items.</p></div>
-    <a href="{{ route(config('campusspace.demo') ? 'equipment.index' : 'admin.equipment.index') }}" class="button button-secondary">{{ config('campusspace.demo') ? 'Browse equipment' : 'Manage inventory' }} <x-icon name="arrow-right" class="size-4" /></a>
+<x-heading title="Beranda Admin" />
+<section class="grid min-w-0 gap-3" aria-labelledby="pending-title">
+    <div class="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="pending-title" class="section-title">Menunggu persetujuan <span class="chip ml-1">{{ $pendingCount }}</span></h2>
+        <a href="{{ route('admin.bookings.index', ['status' => 'pending']) }}" class="text-sm font-semibold text-accent hover:underline">Lihat semua permintaan</a>
+    </div>
+    <x-booking-list :bookings="$pending" admin empty="Tidak ada permintaan baru" />
 </section>
-<div class="grid gap-5 xl:grid-cols-2">
-    <section class="grid content-start gap-3"><h2 class="section-title">Pending review</h2><x-booking-list :bookings="$pending" admin empty="No pending requests" /></section>
-    <section class="grid content-start gap-3"><h2 class="section-title">Upcoming room usage</h2><x-booking-list :bookings="$upcoming" admin empty="No upcoming room usage" /></section>
+<div class="grid gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
+    <section class="grid content-start gap-3" aria-labelledby="today-title">
+        <h2 id="today-title" class="section-title">Peminjaman hari ini</h2>
+        <x-booking-list :bookings="$todayBookings" admin empty="Tidak ada peminjaman hari ini" />
+    </section>
+    <div class="grid content-start gap-4">
+        <section class="panel grid gap-2 p-4 sm:p-5" x-data="roomMonitoring" data-url="{{ route('monitoring.snapshot') }}">
+            <h2 class="section-title">Ruangan sedang digunakan</h2>
+            <p class="muted" x-text="snapshot && !error ? snapshot.summary.in_use + ' ruangan sedang digunakan' : 'Lihat status berdasarkan jadwal.'">Lihat status berdasarkan jadwal.</p>
+            <a class="mt-1 w-fit text-sm font-semibold text-accent hover:underline" href="{{ route('monitoring.index') }}">Pantau ruangan</a>
+        </section>
+        <section class="panel grid gap-2 p-4 sm:p-5">
+            <h2 class="section-title">Peralatan</h2>
+            <p class="muted">{{ $overdue }} terlambat dikembalikan · {{ $activeLoans }} belum kembali</p>
+            @if($losses)<p class="text-sm text-warning">{{ $losses }} catatan pengembalian memerlukan pemeriksaan stok.</p>@endif
+            <div class="mt-1 flex flex-wrap gap-x-4 gap-y-2 text-sm font-semibold text-accent">
+                @if(config('campusspace.demo'))
+                    <a class="hover:underline" href="{{ route('equipment.index') }}">Lihat peralatan</a>
+                @else
+                    <a class="hover:underline" href="{{ route('admin.loans.index', ['status' => $overdue ? 'overdue' : 'active']) }}">Cek pengembalian</a>
+                    <a class="hover:underline" href="{{ route('admin.equipment.index') }}">Kelola peralatan</a>
+                @endif
+            </div>
+        </section>
+    </div>
 </div>
 @endsection

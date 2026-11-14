@@ -46,7 +46,7 @@ class RoomMonitoring
     {
         return $booking ? [
             'start' => $booking->starts_at->getTimestampMs(), 'end' => $booking->ends_at->getTimestampMs(),
-            ...($admin ? ['title' => $booking->title] : []),
+            ...($admin ? ['title' => $booking->title, 'url' => route('admin.bookings.show', $booking)] : []),
         ] : null;
     }
 }

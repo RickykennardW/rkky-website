@@ -12,6 +12,9 @@ class StoreBookingRequest extends FormRequest
 {
     protected function prepareForValidation(): void
     {
+        if (! $this->filled('end_date') && $this->filled('date')) {
+            $this->merge(['end_date' => $this->input('date')]);
+        }
         $quantities = $this->input('quantities');
         if (is_array($quantities)) {
             $this->merge(['quantities' => array_filter($quantities, fn ($quantity) => ! in_array($quantity, [null, '', 0, '0'], true))]);
@@ -34,6 +37,22 @@ class StoreBookingRequest extends FormRequest
         ];
     }
 
+    public function messages(): array
+    {
+        return [
+            'title.required' => 'Isi nama kegiatan.',
+            'title.min' => 'Nama kegiatan minimal 2 karakter.',
+            'description.required' => 'Jelaskan keperluan peminjaman.',
+            'description.min' => 'Keperluan minimal 2 karakter.',
+            'date.date_format' => 'Pilih tanggal mulai yang valid.',
+            'end_date.date_format' => 'Pilih tanggal selesai yang valid.',
+            'start.date_format' => 'Isi jam mulai yang valid.',
+            'end.date_format' => 'Isi jam selesai yang valid.',
+            'participants.between' => 'Jumlah peserta harus antara 1 dan 500.',
+            'committee.between' => 'Jumlah panitia harus antara 0 dan 500.',
+        ];
+    }
+
     public function after(): array
     {
         return [function (Validator $validator): void {
@@ -43,15 +62,15 @@ class StoreBookingRequest extends FormRequest
 
             $quantities = $this->input('quantities') ?? [];
             if (! $this->filled('room_id') && $quantities === []) {
-                $validator->errors()->add('room_id', 'Choose a room or at least one equipment item.');
+                $validator->errors()->add('room_id', 'Pilih ruangan atau setidaknya satu peralatan.');
             }
             if (! $this->filled('room_id') && ! empty($this->input('required_facilities'))) {
-                $validator->errors()->add('required_facilities', 'Choose a room for the requested facilities.');
+                $validator->errors()->add('required_facilities', 'Pilih ruangan untuk fasilitas yang diminta.');
             }
 
             foreach (array_keys($quantities) as $id) {
                 if (! is_string($id) || ! Str::isUuid($id)) {
-                    $validator->errors()->add('quantities', 'An equipment selection is invalid.');
+                    $validator->errors()->add('quantities', 'Pilihan peralatan tidak valid.');
                     break;
                 }
             }

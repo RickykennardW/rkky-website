@@ -32,7 +32,7 @@ class ReservationsTest extends TestCase
 
         $this->actingAs($student)->get('/')->assertOk()->assertSee($room->name);
         $this->get('/rooms?capacity=50')->assertOk()->assertSee($room->name)->assertDontSee('Classroom B');
-        $this->get(route('rooms.show', $room))->assertOk()->assertSee('Room calendar');
+        $this->get(route('rooms.show', $room))->assertOk()->assertSee('Kalender ruangan');
         $this->get('/equipment')->assertOk()->assertSee('Portable Projector');
         $this->getJson($this->availabilityUrl($data))->assertOk()->assertJsonPath('rooms.'.$room->id, true);
 
@@ -101,7 +101,7 @@ class ReservationsTest extends TestCase
         ]);
 
         $this->post(route('admin.bookings.pickup', $booking))->assertRedirect()->assertSessionHasNoErrors();
-        $this->get(route('admin.bookings.show', $booking))->assertOk()->assertSee('Record equipment return');
+        $this->get(route('admin.bookings.show', $booking))->assertOk()->assertSee('Catat pengembalian peralatan');
 
         $return = ['items' => [['equipment_id' => $equipment->id, 'missing' => 2, 'damaged' => 2]], 'note' => 'Inventory inspected.'];
         $this->post(route('admin.bookings.return', $booking), $return)->assertSessionHasErrors('operation');
@@ -131,7 +131,7 @@ class ReservationsTest extends TestCase
     {
         $room = $this->room();
         $this->actingAs(User::factory()->create());
-        $this->get(route('planner.show', ['room' => $room->id]))->assertOk()->assertSee('Smart Room Planner');
+        $this->get(route('planner.show', ['room' => $room->id]))->assertOk()->assertSee('Bantu Atur Ruangan');
         $input = [
             'room_id' => $room->id, 'eventType' => 'Workshop', 'participants' => 16, 'committee' => 4,
             'presentation' => true, 'registrationDesk' => true, 'discussion' => true,

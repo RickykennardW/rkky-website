@@ -1,5 +1,5 @@
 @extends('layouts.shell')
-@section('title', 'Page not found')
+@section('title', 'Halaman tidak ditemukan')
 @section('content')
-<x-empty icon="search" title="Page not found" description="This resource may have moved or is unavailable to your account." :href="route('dashboard')" action="Back to dashboard" />
+<x-empty icon="search" title="Halaman tidak ditemukan" description="Halaman ini mungkin sudah dipindahkan atau tidak tersedia." :href="route('dashboard')" action="Kembali ke beranda" />
 @endsection

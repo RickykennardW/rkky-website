@@ -22,10 +22,17 @@ class SchedulingController extends Controller
         $equipment = $demoMode ? $demo->equipment() : Equipment::query()->orderBy('name')->get();
         $fields = [...BookingPeriod::defaults(), 'participants' => 24, 'committee' => 0];
         $example = $demoMode ? $demo->bookings($request)->firstWhere('id', 'demo-approved') : null;
-        $result = null;
         $interpreted = false;
+        $check = $request->isMethod('get') && $request->boolean('alternatives');
+        $preferences = [
+            ...SmartScheduling::inputRules(false),
+            'room' => ['nullable', 'uuid', Rule::in($rooms->pluck('id')->all())],
+        ];
 
-        if ($request->isMethod('post')) {
+        if ($check) {
+            $provided = $request->validate([...BookingPeriod::rules(), ...$preferences]);
+            $fields = array_replace($fields, array_filter($provided, fn ($value) => $value !== null));
+        } elseif ($request->isMethod('post')) {
             $action = $request->validate(['action' => ['required', 'in:interpret,check'], 'request_text' => ['nullable', 'string', 'max:500']])['action'];
             if ($action === 'interpret') {
                 $text = $request->validate(['request_text' => ['required', 'string', 'max:500']])['request_text'];
@@ -34,12 +41,9 @@ class SchedulingController extends Controller
             } else {
                 $fields = $request->validate([
                     ...BookingPeriod::rules(), ...SmartScheduling::inputRules(true),
-                    'room' => ['nullable', 'uuid', Rule::in($rooms->pluck('id')->all())],
+                    'room' => $preferences['room'],
                 ]);
-                $requested = BookingPeriod::from($fields, future: true);
-                $result = $scheduling->analyze($rooms, $equipment, $requested, $fields, $demoMode
-                    ? fn (array $periods) => array_map(fn (BookingPeriod $period) => $demo->availability($request, $period), $periods)
-                    : fn (array $periods) => $availability->resourcesFor($request->user(), $periods));
+                $check = true;
             }
         } elseif ($example && $request->boolean('example')) {
             $start = $example->starts_at->timezone(config('campusspace.timezone'));
@@ -52,6 +56,14 @@ class SchedulingController extends Controller
                     'required_facilities' => ['Projector'],
                 ];
             }
+        }
+
+        $result = null;
+        if ($check) {
+            $requested = BookingPeriod::from($fields, future: true);
+            $result = $scheduling->analyze($rooms, $equipment, $requested, $fields, $demoMode
+                ? fn (array $periods) => array_map(fn (BookingPeriod $period) => $demo->availability($request, $period), $periods)
+                : fn (array $periods) => $availability->resourcesFor($request->user(), $periods));
         }
 
         return view('scheduling.index', [

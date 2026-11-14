@@ -1,10 +1,10 @@
 @extends('layouts.shell')
-@section('title', 'Notifications')
+@section('title', 'Notifikasi')
 
 @section('content')
-<x-heading title="Notifications" description="Updates on reservation decisions and equipment loans.">
+<x-heading title="Notifikasi" description="Pembaruan pengajuan dan peminjaman peralatan.">
     @if($notifications->count())
-        <form method="post" action="{{ route('notifications.read') }}">@csrf<button class="button button-secondary">Mark all as read</button></form>
+        <form method="post" action="{{ route('notifications.read') }}">@csrf<button class="button button-secondary">Tandai semua sudah dibaca</button></form>
     @endif
 </x-heading>
 @if($notifications->count())
@@ -24,6 +24,6 @@
     </ul>
     {{ $notifications->links() }}
 @else
-    <x-empty icon="bell" title="No notifications yet" description="Updates to your bookings will appear here." />
+    <x-empty icon="bell" title="Belum ada notifikasi" description="Updates to your bookings will appear here." />
 @endif
 @endsection

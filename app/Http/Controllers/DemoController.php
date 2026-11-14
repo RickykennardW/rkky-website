@@ -8,6 +8,7 @@ use App\Models\Equipment;
 use App\Models\Room;
 use App\Services\BookingPeriod;
 use App\Services\DemoWorkspace;
+use App\Services\SchedulingRules;
 use App\Services\SmartRoomPlanner;
 use App\Services\SmartScheduling;
 use Carbon\CarbonImmutable;
@@ -53,27 +54,32 @@ class DemoController extends Controller
         }
 
         $bookings = $this->demo->bookings($request);
-        $approved = $bookings->where('status', 'approved');
-        $upcoming = $approved->filter(fn (Booking $booking) => $booking->ends_at > now())->sortBy('starts_at');
 
         return view('dashboard', [
             'user' => $user, 'rooms' => $this->demo->rooms(),
-            'pendingCount' => $bookings->where('status', 'pending')->count(), 'approvedCount' => $approved->count(),
-            'upcomingCount' => $upcoming->count(), 'upcoming' => $upcoming->take(5),
+            'latestBooking' => $bookings->last(fn (Booking $booking) => $booking->id !== 'demo-active'),
         ]);
     }
 
     public function rooms(Request $request): View
     {
         [$filter, $period] = $this->filters($request, [
-            'capacity' => ['nullable', 'integer', 'between:1,500'],
+            'capacity' => ['nullable', 'integer', 'between:1,1000'],
+            'committee' => ['nullable', 'integer', 'between:0,500'],
+            ...SchedulingRules::equipmentRules(),
             'facility' => ['nullable', 'array', 'max:6'],
             'facility.*' => ['required', Rule::in(Room::FACILITIES), 'distinct'],
         ]);
-        $available = $period ? $this->demo->availability($request, $period)['rooms'] : null;
+        $resources = $period ? $this->demo->availability($request, $period) : null;
+        $available = $resources['rooms'] ?? null;
+        if ($available !== null && SchedulingRules::equipmentIssues(
+            SchedulingRules::equipmentSelection($filter['quantities'] ?? []), $resources['equipment'], [],
+        )) {
+            $available = [];
+        }
         $rooms = $this->demo->rooms()->filter(fn (Room $room) => $room->capacity >= ($filter['capacity'] ?? 1)
             && array_diff($filter['facility'] ?? [], $room->facilities->pluck('facility')->all()) === []
-            && ($available === null || $available[$room->id]));
+            && ($available === null || ($available[$room->id] ?? false)));
 
         return view('catalog.rooms', [
             'rooms' => $this->demo->page($rooms), 'filter' => $filter, 'availability' => $available, 'facilities' => Room::FACILITIES,
@@ -84,7 +90,9 @@ class DemoController extends Controller
     {
         $room = $this->demo->rooms()->firstWhere('id', $room);
         abort_if($room === null, 404);
-        $filter = $request->validate(['week' => ['nullable', 'date_format:Y-m-d'], ...BookingPeriod::rules(false)]);
+        $filter = $request->validate([
+            'week' => ['nullable', 'date_format:Y-m-d'], ...BookingPeriod::rules(false), ...SmartScheduling::inputRules(false),
+        ]);
         $zone = config('campusspace.timezone');
         $week = isset($filter['week']) ? CarbonImmutable::createFromFormat('!Y-m-d', $filter['week'], $zone) : CarbonImmutable::today($zone);
         $approved = $this->demo->bookings($request)->where('status', 'approved')->where('room_id', $room->id);
@@ -145,7 +153,7 @@ class DemoController extends Controller
         $data = $request->validated();
         $room = $this->demo->rooms()->firstWhere('id', $data['room_id'] ?? null);
         if (isset($data['room_id']) && (! $room || $room->capacity < $data['participants'] + $data['committee'])) {
-            throw ValidationException::withMessages(['room_id' => 'Choose a demo room with sufficient capacity.']);
+            throw ValidationException::withMessages(['room_id' => 'Pilih ruangan yang cukup untuk peserta dan panitia.']);
         }
 
         $plan = empty($data['planner']) ? null : $planner->decode($data['planner']);
@@ -155,7 +163,7 @@ class DemoController extends Controller
         }
         $id = $this->demo->save($request, $data, BookingPeriod::from($data, future: true), $plan);
 
-        return redirect()->route('bookings.show', $id)->with('status', 'Demo request submitted for review.');
+        return redirect()->route('bookings.show', $id)->with('status', 'Pengajuan terkirim. Kamu dapat melacak statusnya di Peminjaman Saya.');
     }
 
     public function bookings(Request $request): View
@@ -180,7 +188,7 @@ class DemoController extends Controller
         Gate::authorize('cancel', $this->findBooking($request, $booking));
         $this->demo->decide($request, $booking, 'cancelled');
 
-        return back()->with('status', 'Demo request cancelled.');
+        return back()->with('status', 'Pengajuan dibatalkan.');
     }
 
     public function review(Request $request, string $booking): RedirectResponse
@@ -189,22 +197,21 @@ class DemoController extends Controller
         $status = $data['decision'] === 'approve' ? 'approved' : 'rejected';
         $this->demo->decide($request, $booking, $status, $data['reason'] ?? null);
 
-        return back()->with('status', 'Demo request '.$status.'.');
+        return back()->with('status', $status === 'approved' ? 'Pengajuan disetujui.' : 'Pengajuan ditolak.');
     }
 
     public function admin(Request $request): View
     {
         $bookings = $this->demo->bookings($request);
         $pending = $bookings->where('status', 'pending');
-        $approved = $bookings->where('status', 'approved');
-        $equipment = $this->demo->equipment();
-        $rooms = $this->demo->rooms()->count();
+        $today = now(config('campusspace.timezone'))->startOfDay()->toImmutable();
 
         return view('admin.dashboard', [
-            'pendingCount' => $pending->count(), 'approvedCount' => $approved->count(),
-            'activeLoans' => 0, 'losses' => 0, 'activeRooms' => $rooms, 'roomCount' => $rooms,
-            'equipmentCount' => $equipment->count(), 'usable' => $equipment->sum(fn (Equipment $item) => $item->usableQuantity()),
-            'pending' => $pending->take(5), 'upcoming' => $approved->whereNotNull('room_id')->take(5),
+            'pendingCount' => $pending->count(), 'activeLoans' => 0, 'overdue' => 0, 'losses' => 0,
+            'pending' => $pending->sortBy('starts_at')->take(5),
+            'todayBookings' => $bookings->whereIn('status', ['approved', 'completed'])
+                ->filter(fn (Booking $booking) => $booking->starts_at < $today->addDay() && $booking->ends_at > $today)
+                ->sortBy('starts_at')->take(8),
         ]);
     }
 
@@ -220,6 +227,9 @@ class DemoController extends Controller
     {
         if ($request->filled('endDate') && ! $request->filled('end_date')) {
             $request->merge(['end_date' => $request->input('endDate')]);
+        }
+        if ($request->filled(['date', 'start', 'end']) && ! $request->filled('end_date')) {
+            $request->merge(['end_date' => $request->input('date')]);
         }
         $hasPeriod = $required || $request->anyFilled(['date', 'start', 'end_date', 'end']);
         $filter = $request->validate([...$rules, ...BookingPeriod::rules($hasPeriod)]);
