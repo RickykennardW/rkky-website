@@ -33,7 +33,7 @@ When a key has been exposed, rotate the affected environment with `php artisan k
 
 ## Presentation Demo Mode
 
-Use **Actions → Deploy CampusSpace → Run workflow → main → demo** for the presentation. The server release marker enables Demo Mode. The deployment keeps the existing private environment, checks PHP and Vite assets, and skips database migrations. Normal deployment still checks PostgreSQL and removes the demo marker after the normal release passes preflight.
+Pushes to `main` deploy Demo Mode after CI passes. To run it manually, use **Actions → Deploy CampusSpace → Run workflow → main → demo**. The server release marker enables Demo Mode. The deployment keeps the existing private environment, checks PHP and Vite assets, and skips database migrations. Select **normal** manually only when PostgreSQL and `pdo_pgsql` are ready. Normal deployment checks PostgreSQL and removes the demo marker after the normal release passes preflight.
 
 Open **Start demo**, choose **Student**, and use **Switch demo role** to review that browser's requests as the demo administrator. Signing out clears that browser's demo requests. The room and equipment catalog contains fictional data.
 
@@ -80,9 +80,9 @@ git commit -m "Migrate CampusSpace to Laravel"
 git push origin main
 ```
 
-Open **GitHub → Actions → Deploy CampusSpace → Run workflow**, select **main**, and click **Run workflow**. The validation job's summary records whether the run requested a deploy. Pushes and pull requests to `main` run validation. After a successful manual deployment, set the repository Actions variable `CAMPUSSPACE_AUTO_DEPLOY=true` if you want validated pushes to `main` to deploy automatically.
+After pushing to `main`, follow **GitHub → Actions → Deploy CampusSpace**. The deploy job starts after validation succeeds and uses **demo** for pushes. Pull requests targeting `main` run validation only. A manual run can deploy the current tip of `main` in either mode. Both modes share the same production deployment queue.
 
-The deployment locks the existing checkout and verifies the intended commit is the tip of `main`. A temporary worktree outside the site installs production Composer dependencies, checks the database connection, and applies the Laravel migrations. The workflow updates the live checkout only after the staged schema and compiled assets pass validation. It then publishes the assets, runs Laravel optimization, and checks the HTTPS health response and homepage content. Previous commits and hashed assets are available if a release needs rollback. To recover from a bad application commit, revert it on `main` and run the deployment again. The schema migrations retain existing data and are handled separately from code rollback.
+The deployment locks the existing checkout, rejects commits superseded on `main`, and only fast-forwards the server checkout. A temporary worktree outside the site installs production Composer dependencies and runs readiness checks. Only **normal** checks PostgreSQL and applies Laravel migrations. The workflow updates the live checkout after preflight passes, publishes the assets, runs Laravel optimization, and checks the HTTPS health response and homepage content. Previous commits and hashed assets are available if a release needs rollback. To recover from a bad application commit, revert it on `main` and deploy the revert. The schema migrations retain existing data and are handled separately from code rollback.
 
 For a fresh installation, the migration role needs database and schema creation privileges, access to `auth.uid()`, and `TRIGGER`, `REFERENCES (id)`, and profile backfill read access on `auth.users`. `php artisan migrate --pretend` reads real catalog metadata and previews the migration SQL. Use it against an initialized migration repository because Artisan can create the `migrations` table during preparation. The preview cannot test DDL execution or locks.
 
